@@ -1,0 +1,4734 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rådalslien 117 Road Cycling Route Platform</title>
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="preconnect" href="https://{s}.tile.openstreetmap.org" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #071015;
+      --panel: rgba(13, 24, 31, 0.82);
+      --panel-strong: rgba(17, 31, 40, 0.96);
+      --line: rgba(255, 255, 255, 0.10);
+      --muted: #96a6ad;
+      --text: #eef7f8;
+      --soft: #cfe2e6;
+      --accent: #5eead4;
+      --accent-2: #38bdf8;
+      --warn: #fbbf24;
+      --danger: #fb7185;
+      --route-red: #ef4444;
+      --ok: #86efac;
+      --shadow: 0 24px 80px rgba(0,0,0,.36);
+      --radius: 22px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 0%, rgba(94,234,212,.16), transparent 28%),
+        radial-gradient(circle at 80% 5%, rgba(56,189,248,.12), transparent 27%),
+        radial-gradient(circle at 55% 100%, rgba(251,191,36,.08), transparent 30%),
+        var(--bg);
+      overflow-x: hidden;
+    }
+
+    .app {
+      width: min(1580px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 22px 0 34px;
+    }
+
+    header.hero {
+      display: grid;
+      grid-template-columns: 1.45fr .9fr;
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .hero-card, .control-card, .map-card, .panel, .profile-card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(15, 29, 37, .88), rgba(11, 21, 28, .84));
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .hero-card { padding: 26px; min-height: 235px; position: relative; overflow: hidden; }
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      right: -130px;
+      top: -110px;
+      width: 360px;
+      height: 360px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(94,234,212,.18), transparent 65%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: 1px solid rgba(94,234,212,.22);
+      background: rgba(94,234,212,.08);
+      color: var(--accent);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 20px var(--accent); }
+
+    h1 {
+      margin: 0;
+      max-width: 850px;
+      font-size: clamp(32px, 5vw, 64px);
+      line-height: .95;
+      letter-spacing: -0.06em;
+    }
+    .subtitle {
+      max-width: 890px;
+      color: var(--soft);
+      font-size: 16px;
+      line-height: 1.55;
+      margin: 18px 0 0;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.045);
+      padding: 9px 11px;
+      border-radius: 999px;
+      color: var(--soft);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .pill strong { color: var(--text); }
+
+    .control-card { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .tabs { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    button, input { font: inherit; }
+    .tab {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.045);
+      color: var(--soft);
+      border-radius: 16px;
+      padding: 14px 15px;
+      text-align: left;
+      cursor: pointer;
+      transition: .18s ease;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+    }
+    .tab:hover { transform: translateY(-1px); background: rgba(255,255,255,.075); }
+    .tab.active { border-color: rgba(94,234,212,.55); background: rgba(94,234,212,.11); }
+    .tab .badge { width: 42px; height: 30px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.07); font-weight: 900; color: var(--accent); }
+    .tab .name { font-weight: 850; color: var(--text); letter-spacing: -.02em; }
+    .tab .micro { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .tab .dist { font-family: var(--mono); color: var(--accent); font-size: 12px; }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(410px, .75fr);
+      gap: 18px;
+    }
+
+    .map-card { min-height: 680px; overflow: hidden; position: relative; }
+    #map { height: 680px; width: 100%; background: #0a151b; }
+    .map-topbar {
+      position: absolute;
+      z-index: 500;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .map-chip {
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(7,16,21,.82);
+      border-radius: 999px;
+      padding: 10px 12px;
+      color: var(--soft);
+      font-size: 12px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 34px rgba(0,0,0,.22);
+    }
+    .map-actions { display: flex; gap: 8px; }
+    .mini-btn {
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(7,16,21,.82);
+      color: var(--soft);
+      border-radius: 999px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: .15s ease;
+      font-size: 12px;
+      pointer-events: auto;
+      backdrop-filter: blur(12px);
+    }
+    .mini-btn:hover { background: rgba(255,255,255,.11); color: var(--text); }
+    .mini-btn.active { color: #07231e; background: var(--accent); border-color: var(--accent); font-weight: 800; }
+
+    .leaflet-control-attribution { background: rgba(7,16,21,.7) !important; color: var(--muted) !important; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #101d25; color: var(--text); border: 1px solid rgba(255,255,255,.12); }
+    .leaflet-popup-content { margin: 12px 14px; font-size: 13px; line-height: 1.4; }
+    .leaflet-popup-content b { color: var(--route-red); }
+
+    .road-label {
+      color: #fff;
+      background: var(--route-red);
+      border: 2px solid rgba(255,255,255,.7);
+      box-shadow: 0 10px 22px rgba(0,0,0,.35);
+      padding: 4px 7px;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-weight: 900;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .checkpoint-pin div { color: #fff; font-weight: 950; font-size: 11px; display: grid; place-items: center; }
+    .checkpoint-label {
+      color: var(--text);
+      background: rgba(7,16,21,.78);
+      border: 1px solid rgba(255,255,255,.16);
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+    }
+
+    .left-stack, .right-stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+    .panel, .profile-card { padding: 18px; }
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    h2 { margin: 0; font-size: 18px; letter-spacing: -.03em; }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    .metric {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 0;
+    }
+    .metric span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+    .metric strong { display: block; margin-top: 5px; font-size: 20px; letter-spacing: -.04em; }
+    .metric small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+    .estimator {
+      border: 1px solid rgba(94,234,212,.18);
+      background: linear-gradient(180deg, rgba(94,234,212,.09), rgba(255,255,255,.035));
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .switch {
+      display: inline-flex;
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.16);
+      margin-bottom: 14px;
+    }
+    .switch button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .switch button.active { background: rgba(94,234,212,.95); color: #06211d; }
+    .slider-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 8px 0 0; }
+    .slider-row label { color: var(--soft); font-size: 13px; font-weight: 800; }
+    .value-readout { font-family: var(--mono); color: var(--accent); font-weight: 900; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .time-result {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+    .time-result .time { font-size: 30px; font-weight: 950; letter-spacing: -.05em; }
+    .time-result .sub { color: var(--muted); font-size: 12px; }
+
+    .profile-card { position: relative; overflow: hidden; }
+    #profileSvg { width: 100%; height: 245px; display: block; border-radius: 16px; background: rgba(255,255,255,.025); border: 1px solid var(--line); }
+    .chart-tip {
+      display: none;
+      position: absolute;
+      z-index: 20;
+      pointer-events: none;
+      min-width: 150px;
+      background: rgba(7,16,21,.95);
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 12px;
+      padding: 9px 10px;
+      box-shadow: 0 14px 34px rgba(0,0,0,.34);
+      color: var(--soft);
+      font-size: 12px;
+    }
+    .chart-tip strong { color: var(--route-red); }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 9px; height: 9px; border-radius: 3px; background: var(--route-red); display: inline-block; }
+    .swatch.warn { background: var(--warn); }
+    .swatch.danger { background: var(--danger); }
+    .swatch.roll { background: var(--accent-2); }
+
+    .strategy { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .strategy-card {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.035);
+      border-radius: 16px;
+      padding: 12px;
+      min-height: 108px;
+    }
+    .strategy-card h3 { margin: 0 0 7px; font-size: 13px; color: var(--accent); letter-spacing: -.01em; }
+    .strategy-card p { margin: 0; color: var(--soft); font-size: 13px; line-height: 1.45; }
+
+    .table { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+    .row { display: grid; grid-template-columns: 72px 96px 1fr; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); align-items: start; }
+    .row:last-child { border-bottom: 0; }
+    .row .km { font-family: var(--mono); color: var(--accent); font-size: 12px; font-weight: 900; }
+    .row .road { font-family: var(--mono); font-size: 12px; color: var(--soft); }
+    .row .desc { color: var(--soft); font-size: 13px; line-height: 1.35; }
+
+    .warnings { display: flex; flex-direction: column; gap: 8px; }
+    .warning {
+      border: 1px solid rgba(251,191,36,.22);
+      background: rgba(251,191,36,.075);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 9px;
+      align-items: start;
+      color: var(--soft);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .warning.danger { border-color: rgba(251,113,133,.24); background: rgba(251,113,133,.075); }
+    .warning .icon { color: var(--warn); font-weight: 900; }
+    .warning.danger .icon { color: var(--danger); }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px 14px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .action-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .action-btn {
+      border: 1px solid rgba(94,234,212,.28);
+      background: rgba(94,234,212,.10);
+      color: var(--accent);
+      border-radius: 13px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 850;
+      font-size: 12px;
+      transition: .16s ease;
+    }
+    .action-btn:hover { transform: translateY(-1px); background: rgba(94,234,212,.16); }
+
+
+
+    .map-guide-panel {
+      position: relative;
+      overflow: hidden;
+    }
+    .map-guide-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 0% 0%, rgba(239,68,68,.13), transparent 35%);
+      pointer-events: none;
+    }
+    .map-guide-panel > * { position: relative; }
+    .map-guide-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0 12px;
+    }
+    .map-guide-actions .action-btn {
+      border-color: rgba(239,68,68,.38);
+      background: rgba(239,68,68,.12);
+      color: #ffd7d7;
+    }
+    .map-guide-actions .action-btn:hover { background: rgba(239,68,68,.20); }
+    .guideline-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 13px;
+      padding-top: 13px;
+      border-top: 1px solid var(--line);
+    }
+    .guide-step {
+      display: grid;
+      grid-template-columns: 78px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      border: 1px solid rgba(255,255,255,.11);
+      background: rgba(255,255,255,.035);
+      border-radius: 15px;
+      padding: 10px 11px;
+    }
+    .guide-step .letters {
+      font-family: var(--mono);
+      color: #fff;
+      background: var(--route-red);
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-weight: 950;
+      font-size: 11px;
+      text-align: center;
+      box-shadow: 0 8px 18px rgba(0,0,0,.25);
+    }
+    .guide-step .guide-main { min-width: 0; }
+    .guide-step .place {
+      color: var(--text);
+      font-weight: 850;
+      font-size: 13px;
+      line-height: 1.35;
+      margin-bottom: 3px;
+    }
+    .guide-step .instruction {
+      color: var(--soft);
+      font-size: 12px;
+      line-height: 1.42;
+    }
+    .guide-step .km {
+      font-family: var(--mono);
+      color: var(--accent);
+      font-weight: 900;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .route-sequence {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+    .seq-point {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      text-decoration: none;
+      color: var(--soft);
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      border-radius: 999px;
+      padding: 7px 9px 7px 7px;
+      font-size: 12px;
+      transition: .16s ease;
+    }
+    .seq-point:hover { transform: translateY(-1px); background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.36); color: var(--text); }
+    .seq-point b {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--route-red);
+      color: #fff;
+      font-size: 11px;
+      box-shadow: 0 8px 18px rgba(0,0,0,.26);
+    }
+    .seq-point span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .zone-control {
+      border: 1px solid rgba(94,234,212,.18);
+      background: linear-gradient(180deg, rgba(94,234,212,.08), rgba(255,255,255,.035));
+      border-radius: 18px;
+      padding: 13px 14px;
+      margin-bottom: 12px;
+    }
+    .zone-control-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    .zone-control label em {
+      color: var(--muted);
+      font-style: normal;
+      font-weight: 700;
+    }
+    .zone-help {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .zone-help b { color: var(--soft); }
+    .zone-recommendation {
+      border: 1px solid rgba(239,68,68,.26);
+      background: rgba(239,68,68,.08);
+      color: var(--soft);
+      border-radius: 16px;
+      padding: 12px 13px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 12px;
+    }
+    .zone-recommendation b { color: var(--route-red); }
+    .zone-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .zone-card {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.035);
+      border-radius: 16px;
+      padding: 12px;
+      transition: .16s ease;
+      min-height: 154px;
+    }
+    .zone-card.active {
+      border-color: rgba(239,68,68,.55);
+      background: linear-gradient(180deg, rgba(239,68,68,.15), rgba(255,255,255,.035));
+      box-shadow: 0 12px 28px rgba(239,68,68,.12);
+    }
+    .zone-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      margin-bottom: 7px;
+    }
+    .zone-head h3 { margin: 0; font-size: 13px; color: var(--text); letter-spacing: -.01em; }
+    .zone-range {
+      display: grid;
+      justify-items: end;
+      gap: 2px;
+      font-family: var(--mono);
+      white-space: nowrap;
+      text-align: right;
+    }
+    .zone-range strong { font-size: 12px; color: var(--route-red); }
+    .zone-range span { font-size: 10.5px; color: var(--muted); font-weight: 800; }
+    .zone-card p { margin: 0 0 7px; color: var(--soft); font-size: 12.5px; line-height: 1.4; }
+    .zone-card small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .zone-tag {
+      display: inline-flex;
+      margin-top: 9px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.14);
+      color: var(--muted);
+      padding: 5px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .zone-card.active .zone-tag { color: #ffd7d7; border-color: rgba(239,68,68,.35); }
+
+
+
+    .smart-panel { position: relative; overflow: hidden; }
+    .smart-panel:before {
+      content: '';
+      position: absolute;
+      inset: -80px auto auto -80px;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(239,68,68,.14), transparent 68%);
+      pointer-events: none;
+    }
+    .smart-copy { color: var(--soft); font-size: 13px; line-height: 1.45; margin: -3px 0 13px; }
+    .builder-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .builder-field { display: grid; gap: 6px; }
+    .builder-field.full { grid-column: 1 / -1; }
+    .builder-field label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 900; }
+    .builder-field input, .builder-field select {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      border-radius: 13px;
+      padding: 11px 12px;
+      font: 800 13px var(--sans);
+      outline: none;
+    }
+    .builder-field input::placeholder { color: rgba(207,226,230,.44); }
+    .builder-field input:focus, .builder-field select:focus { border-color: rgba(239,68,68,.52); box-shadow: 0 0 0 3px rgba(239,68,68,.10); }
+    .inline-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+    .inline-actions .action-btn, .inline-actions .mini-btn { min-height: 40px; }
+    .smart-actions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 12px; }
+    .smart-status {
+      margin-top: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      border-radius: 16px;
+      padding: 11px 12px;
+      color: var(--soft);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .smart-status b { color: var(--text); }
+    .smart-status .bad { color: var(--danger); font-weight: 900; }
+    .smart-status .ok { color: var(--ok); font-weight: 900; }
+    .smart-status .warn { color: var(--warn); font-weight: 900; }
+    .smart-note { margin-top: 10px; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+
+    @media (max-width: 1180px) {
+      header.hero, .main-grid { grid-template-columns: 1fr; }
+      .control-card { order: -1; }
+      .tabs { grid-template-columns: repeat(3, 1fr); }
+      .tab { grid-template-columns: auto 1fr; }
+      .tab .dist { grid-column: 2; }
+      .main-grid { grid-template-columns: 1fr; }
+      .right-stack { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+      .left-stack { display: flex; }
+      .panel.full, .profile-card { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 760px) {
+      .app { width: min(100% - 18px, 1580px); padding-top: 10px; }
+      .hero-card, .control-card, .panel, .profile-card { padding: 14px; border-radius: 18px; }
+      .tabs { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .strategy, .zone-grid, .zone-control-grid, .builder-grid { grid-template-columns: 1fr; }
+      .left-stack, .right-stack { display: flex; }
+      .guide-step { grid-template-columns: 64px 1fr; }
+      .guide-step .km { grid-column: 2; }
+      .row { grid-template-columns: 62px 78px 1fr; padding: 10px; }
+      #map, .map-card { min-height: 520px; height: 520px; }
+      #map { height: 520px; }
+      .map-topbar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <section class="hero-card">
+        <div class="eyebrow"><span class="dot"></span> Bergen/Fana Performance Road Lab</div>
+        <h1>Round-trip road cycling routes from Rådalslien 117.</h1>
+        <p class="subtitle">Nine distance-specific round-trip road routes designed for a performance cyclist: 20, 30, 40, 50, 60, 70, 80, 90 and 100 km options, all starting and finishing at Rådalslien 117 with A/B/C checkpoint sequencing, pacing strategy, elevation warnings and GPX export.</p>
+        <div class="hero-meta">
+          <span class="pill"><strong>Start/finish:</strong> Rådalslien 117, Rådal</span>
+          <span class="pill"><strong>Anchor:</strong> 60.29306°N, 5.330751°E</span>
+          <span class="pill"><strong>Bike:</strong> road / endurance geometry</span>
+          <span class="pill"><strong>Planner mode:</strong> pre-ride decision + pacing</span>
+        </div>
+      </section>
+
+      <aside class="control-card">
+        <div class="section-title">
+          <h2>Distance Ladder</h2>
+          <span class="muted">20–100 km</span>
+        </div>
+        <div class="tabs" id="tabs"></div>
+      </aside>
+    </header>
+
+    <main class="main-grid">
+      <div class="left-stack">
+        <section class="map-card">
+          <div class="map-topbar">
+            <div class="map-chip" id="mapStatus">Loading map canvas…</div>
+            <div class="map-actions">
+              <button class="mini-btn" id="snapBtn" title="Best-effort browser-side OSRM bicycle road snap">Road snap</button>
+              <button class="mini-btn" id="fitBtn">Fit route</button>
+            </div>
+          </div>
+          <div id="map" role="application" aria-label="Interactive road cycling map"></div>
+        </section>
+
+        <section class="panel map-guide-panel" aria-label="Route guideline and export controls under map">
+          <div class="section-title">
+            <h2>Route Guideline</h2>
+            <span class="muted" id="mapGuideMeta">A → … → A</span>
+          </div>
+          <div class="map-guide-actions">
+            <button class="action-btn" id="mapsBtnMap">Open in Google Maps</button>
+            <button class="action-btn" id="gpxBtnMap">Export GPX</button>
+            <button class="action-btn" id="copyBtnMap">Copy route brief</button>
+          </div>
+          <div class="route-sequence" id="routeSequenceMap" aria-label="Clickable route point sequence under map"></div>
+          <div class="guideline-list" id="routeGuidelineMap"></div>
+        </section>
+
+        <section class="panel smart-panel" aria-label="Smart dynamic route builder">
+          <div class="section-title">
+            <h2>Smart Route Builder</h2>
+            <span class="muted">location · start/end · bike paths</span>
+          </div>
+          <p class="smart-copy">Keep the curated 20–100 km Bergen ladder, or generate a new smart route from your current position or any chosen start/end. For GitHub Pages, paste your own OpenRouteService key locally — do not hard-code private keys into the repository.</p>
+          <div class="builder-grid">
+            <div class="builder-field">
+              <label for="smartDistance">Target distance</label>
+              <select id="smartDistance">
+                <option value="20">20 km</option><option value="30">30 km</option><option value="40">40 km</option><option value="50">50 km</option><option value="60">60 km</option><option value="70">70 km</option><option value="80">80 km</option><option value="90">90 km</option><option value="100">100 km</option>
+              </select>
+            </div>
+            <div class="builder-field">
+              <label for="smartMode">Route mode</label>
+              <select id="smartMode">
+                <option value="round">Round trip from start</option>
+                <option value="point">Start → End route</option>
+              </select>
+            </div>
+            <div class="builder-field">
+              <label for="smartProfile">Cycling profile</label>
+              <select id="smartProfile">
+                <option value="cycling-road">Road bike / asphalt focus</option>
+                <option value="cycling-regular">Regular cycling / bike paths</option>
+                <option value="cycling-electric">E-bike friendly</option>
+              </select>
+            </div>
+            <div class="builder-field full">
+              <label for="smartStartText">Start from</label>
+              <input id="smartStartText" type="text" value="Rådalslien 117, 5239 Rådal, Norway" placeholder="Address, place name, or lat,lng" />
+            </div>
+            <div class="builder-field full" id="smartEndField" hidden>
+              <label for="smartEndText">End at</label>
+              <input id="smartEndText" type="text" placeholder="Address, place name, or lat,lng" />
+            </div>
+            <div class="builder-field">
+              <label for="smartPreset">Smart search bias</label>
+              <select id="smartPreset">
+                <option value="performance">Performance road route</option>
+                <option value="calm">Prefer calmer cycling roads</option>
+                <option value="climb-lite">Avoid excessive steepness</option>
+                <option value="scenic">Scenic loop exploration</option>
+              </select>
+            </div>
+            <div class="builder-field">
+              <label for="smartPoints">Loop shape</label>
+              <select id="smartPoints">
+                <option value="3">Triangular / direct</option>
+                <option value="4" selected>Balanced round loop</option>
+                <option value="5">More circular / exploratory</option>
+              </select>
+            </div>
+            <div class="builder-field">
+              <label for="smartSeed">Direction seed</label>
+              <input id="smartSeed" type="range" min="1" max="50" step="1" value="17" />
+            </div>
+            <div class="builder-field full">
+              <label for="orsApiKey">OpenRouteService API key</label>
+              <input id="orsApiKey" type="password" autocomplete="off" placeholder="Paste key here for real cycling-road generation" />
+            </div>
+          </div>
+          <div class="smart-actions">
+            <button class="action-btn" id="useCurrentStartBtn">Use my current position</button>
+            <button class="action-btn" id="useHomeStartBtn">Use Rådalslien 117</button>
+            <button class="action-btn" id="generateSmartBtn">Generate smart cycling route</button>
+            <button class="action-btn" id="previewSmartBtn">Preview loop without API</button>
+            <button class="action-btn" id="clearSmartBtn">Back to curated route</button>
+          </div>
+          <div class="smart-status" id="smartStatus"><b>Ready.</b> Choose a distance, start point and route mode. The generated route will appear on the same red map with A/B/C pins, GPX export and Google Maps links.</div>
+          <div class="smart-note">Production recommendation: put ORS/Mapbox/GraphHopper calls behind a tiny backend proxy before public release. For personal GitHub Pages testing, a pasted local key is okay, but a hard-coded key is not.</div>
+        </section>
+
+      </div>
+
+      <aside class="right-stack">
+        <section class="panel full">
+          <div class="section-title">
+            <h2 id="routeTitle">Route Metrics</h2>
+            <span class="muted" id="routeObjective">—</span>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><span>Distance</span><strong id="mDistance">—</strong><small>round trip</small></div>
+            <div class="metric"><span>Ascent</span><strong id="mAscent">—</strong><small>vertical gain</small></div>
+            <div class="metric"><span>Max Alt.</span><strong id="mAlt">—</strong><small>highest sector</small></div>
+            <div class="metric"><span>Stress</span><strong id="mStress">—</strong><small>route load</small></div>
+          </div>
+          <div class="estimator">
+            <div class="switch" aria-label="Estimator mode">
+              <button id="modeSpeed" class="active">Average Speed</button>
+              <button id="modePower">Target Power</button>
+            </div>
+            <div id="speedBlock">
+              <div class="slider-row"><label for="speedSlider">Average speed</label><span class="value-readout"><span id="speedVal">26.0</span> km/h</span></div>
+              <input id="speedSlider" type="range" min="18" max="38" step="0.5" value="26" />
+            </div>
+            <div id="powerBlock" hidden>
+              <div class="slider-row"><label for="powerSlider">Target normalized power</label><span class="value-readout"><span id="powerVal">210</span> W</span></div>
+              <input id="powerSlider" type="range" min="120" max="340" step="5" value="210" />
+            </div>
+            <div class="time-result">
+              <div>
+                <div class="sub" id="estimateBasis">Estimated moving time at selected speed</div>
+                <div class="time" id="movingTime">—</div>
+              </div>
+              <div class="metric" style="min-width:120px;margin:0;"><span>Est. speed</span><strong id="estimatedSpeed">—</strong><small id="speedSource">manual</small></div>
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="action-btn" id="gpxBtn">Export GPX</button>
+            <button class="action-btn" id="mapsBtn">Open full route in Google Maps</button>
+            <button class="action-btn" id="copyBtn">Copy route brief</button>
+          </div>
+          <div class="route-sequence" id="routeSequence" aria-label="Google Maps searchable route point sequence"></div>
+        </section>
+
+        <section class="panel full" id="zonePanel">
+          <div class="section-title">
+            <h2>Training Zone Decoder</h2>
+            <span class="muted">Power + heart-rate guide</span>
+          </div>
+          <div class="zone-control">
+            <div class="zone-control-grid">
+              <div>
+                <div class="slider-row"><label for="ftpSlider">Estimated FTP <em>optional</em></label><span class="value-readout"><span id="ftpVal">250</span> W</span></div>
+                <input id="ftpSlider" type="range" min="140" max="380" step="5" value="250" />
+              </div>
+              <div>
+                <div class="slider-row"><label for="maxHrSlider">Max heart rate</label><span class="value-readout"><span id="maxHrVal">191</span> bpm</span></div>
+                <input id="maxHrSlider" type="range" min="160" max="210" step="1" value="191" />
+              </div>
+              <div>
+                <div class="slider-row"><label for="restHrSlider">Resting heart rate</label><span class="value-readout"><span id="restHrVal">50</span> bpm</span></div>
+                <input id="restHrSlider" type="range" min="35" max="80" step="1" value="50" />
+              </div>
+            </div>
+            <div class="zone-help">No power meter yet? Use the <b>BPM range</b> as your main guide. The watt number is kept for later when you add a power meter.</div>
+          </div>
+          <div class="zone-recommendation" id="zoneRecommendation">—</div>
+          <div class="zone-grid" id="zoneGrid"></div>
+          <div class="footer-note">Use heart rate as a steady-effort guide: <b>Z2 Easy</b> feels relaxed, <b>Z2 Endurance</b> is conversational but purposeful, and <b>Tempo/Threshold</b> should be reserved for planned climbs. HR reacts slowly on short hills, so do not chase every spike — settle back into the target zone after the gradient changes.</div>
+        </section>
+
+        <section class="profile-card">
+          <div class="section-title">
+            <h2>Elevation Profile Engine</h2>
+            <span class="muted" id="profileMeta">—</span>
+          </div>
+          <svg id="profileSvg" viewBox="0 0 720 245" preserveAspectRatio="none"></svg>
+          <div class="chart-tip" id="chartTip"></div>
+          <div class="legend">
+            <span><i class="swatch"></i> elevation</span>
+            <span><i class="swatch warn"></i> steep warning</span>
+            <span><i class="swatch danger"></i> 7–10% sector</span>
+            <span><i class="swatch roll"></i> rolling terrain</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">
+            <h2>Technical Pacing</h2>
+            <span class="muted">route-specific</span>
+          </div>
+          <div class="table" id="paceTable"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-title">
+            <h2>Risk & Strategy Readouts</h2>
+            <span class="muted">before clipping in</span>
+          </div>
+          <div class="warnings" id="warnings"></div>
+        </section>
+
+        <section class="panel full">
+          <div class="section-title">
+            <h2>Surface, Wind & Stop Strategy</h2>
+            <span class="muted" id="strategyMeta">—</span>
+          </div>
+          <div class="strategy" id="strategyGrid"></div>
+          <div class="footer-note" id="plannerNote"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const START = [60.29306, 5.330751];
+    const lineStyle = { weight: 6, opacity: .98, lineCap: 'round', lineJoin: 'round' };
+    const fallbackNote = 'Every route starts and finishes at Rådalslien 117. The A/B/C checkpoint sequence uses real Google Maps-searchable place names. The red map line is planning-grade; use Road snap for browser-side bicycle routing and validate the Google Maps/GPX route on Garmin, Komoot or Strava before riding.';
+
+    const routes = {
+      "r20": {
+            "id": "r20",
+            "targetKm": 20,
+            "tab": "20 km Recovery / Endurance",
+            "bracket": "20 km",
+            "name": "Rådalslien · Fana kirke · Stend Micro Loop",
+            "objective": "easy Z2 / leg-opener",
+            "stress": "Low",
+            "distanceKm": 21.8,
+            "ascentM": 210,
+            "descentM": 210,
+            "maxAltM": 118,
+            "refSpeedAt200": 30.5,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.2965,
+                        5.3318
+                  ],
+                  [
+                        60.3,
+                        5.343
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2885,
+                        5.338
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.2815,
+                        5.317
+                  ],
+                  [
+                        60.2965,
+                        5.3318
+                  ],
+                  [
+                        60.3,
+                        5.343
+                  ],
+                  [
+                        60.298,
+                        5.335
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Start controlled; use the first two minutes to check shoes, brakes and traffic awareness.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 3.8,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Join the main Fana road gently; cadence over power.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 7.4,
+                        "name": "Hordamuseet, Hordnesvegen 24, 5244 Fana",
+                        "road": "Hordnesvegen / Fanavegen",
+                        "lat": 60.2688,
+                        "lng": 5.335,
+                        "desc": "Quiet endurance rhythm; watch buses and school traffic at peak hours.",
+                        "mapQuery": "Hordamuseet, Hordnesvegen 24, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 12.2,
+                        "name": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal",
+                        "road": "Laguneveien / Apeltunvegen",
+                        "lat": 60.2965,
+                        "lng": 5.3318,
+                        "desc": "Urban zone: reduce speed, scan junctions and keep it smooth.",
+                        "mapQuery": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 16.8,
+                        "name": "Skjoldskiftet, 5238 Rådal",
+                        "road": "Apeltunvegen / Skjoldskiftet",
+                        "lat": 60.3,
+                        "lng": 5.343,
+                        "desc": "Short rolling return; keep the ride aerobic.",
+                        "mapQuery": "Skjoldskiftet, 5238 Rådal, Bergen, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 21.8,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Finish easy; this loop should leave you fresher, not cooked.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        3.8,
+                        58
+                  ],
+                  [
+                        7.4,
+                        62
+                  ],
+                  [
+                        10.0,
+                        95
+                  ],
+                  [
+                        12.2,
+                        48
+                  ],
+                  [
+                        16.8,
+                        118
+                  ],
+                  [
+                        19.5,
+                        92
+                  ],
+                  [
+                        21.8,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 13.2,
+                        "type": "warn",
+                        "text": "Lagunen urban sector: many junctions, roundabouts and pedestrians. Treat this as a skills/safety block, not a speed segment.",
+                        "from": 11.2
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 18.7,
+                        "text": "short Rådal return rollers",
+                        "from": 15.2
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm up, 85–95 rpm, avoid hard starts."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Hordnesvegen/Fanavegen",
+                        "Stable endurance pressure; no surges through Fana."
+                  ],
+                  [
+                        "C–D",
+                        "Hordnesvegen/Fanavegen → Laguneveien/Apeltunvegen",
+                        "Light spin and traffic discipline."
+                  ],
+                  [
+                        "D–E",
+                        "Laguneveien/Apeltunvegen → Apeltunvegen/Skjoldskiftet",
+                        "Stay alert through junctions."
+                  ],
+                  [
+                        "E–A",
+                        "Apeltunvegen/Skjoldskiftet → Rådalslien",
+                        "Cooldown spin home."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "Mostly good urban/suburban tarmac with cycleway transitions. Painted lines and drain covers can be slippery after Bergen rain.",
+                  "wind": "Minimal exposure compared with the longer routes; wind only matters on small open shelves near Stend.",
+                  "traffic": "Best at early weekend mornings or after the commuter peak. Be conservative around Lagunen and Fana school windows.",
+                  "stops": "No stop required. Use Lagunen only as a safety reset if shoes, saddle or cleats feel off."
+            }
+      },
+      "r30": {
+            "id": "r30",
+            "targetKm": 30,
+            "tab": "30 km Endurance",
+            "bracket": "30 km",
+            "name": "Rådalslien · Fana · Kalandsvatnet · Smørås Loop",
+            "objective": "Z2 endurance / cadence economy",
+            "stress": "Low–Med",
+            "distanceKm": 30.4,
+            "ascentM": 340,
+            "descentM": 340,
+            "maxAltM": 145,
+            "refSpeedAt200": 29.2,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.2675,
+                        5.397
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.302,
+                        5.366
+                  ],
+                  [
+                        60.315,
+                        5.354
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2885,
+                        5.3422
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.264,
+                        5.372
+                  ],
+                  [
+                        60.2675,
+                        5.397
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.2705,
+                        5.426
+                  ],
+                  [
+                        60.302,
+                        5.366
+                  ],
+                  [
+                        60.315,
+                        5.354
+                  ],
+                  [
+                        60.304,
+                        5.3445
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Clip in gently; stay below tempo until Fana.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 4.9,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Settle into endurance HR before the lake road.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 11.4,
+                        "name": "Kalandsvatnet north shore, Kismulvegen",
+                        "road": "Kismulvegen / Osbanetraseen",
+                        "lat": 60.2675,
+                        "lng": 5.397,
+                        "desc": "Open water wind read: stay aero but relaxed.",
+                        "mapQuery": "Kalandsvatnet, Kismulvegen, Bergen, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 15.9,
+                        "name": "Kalandseid / Kalandsvatnet south, Osvegen",
+                        "road": "Osvegen / Kismulvegen",
+                        "lat": 60.2535,
+                        "lng": 5.441,
+                        "desc": "Turn point for the 30 km loop; eat/drink if riding fasted.",
+                        "mapQuery": "Kalandseid, Osvegen, Bergen, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 21.7,
+                        "name": "Smørås, Apeltunvegen / Smøråsvegen",
+                        "road": "Apeltunvegen / Smøråsvegen",
+                        "lat": 60.302,
+                        "lng": 5.366,
+                        "desc": "Rolling terrain; keep cadence high over pitches.",
+                        "mapQuery": "Smørås, Apeltunvegen, 5238 Rådal, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 25.8,
+                        "name": "Skjoldskiftet, 5238 Rådal",
+                        "road": "Apeltunvegen / Skjoldskiftet",
+                        "lat": 60.315,
+                        "lng": 5.354,
+                        "desc": "Urban awareness; no sprinting through dense intersections.",
+                        "mapQuery": "Skjoldskiftet, 5238 Rådal, Bergen, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 30.4,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Finish controlled.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        4.9,
+                        58
+                  ],
+                  [
+                        8.0,
+                        88
+                  ],
+                  [
+                        11.4,
+                        104
+                  ],
+                  [
+                        15.9,
+                        96
+                  ],
+                  [
+                        19.2,
+                        122
+                  ],
+                  [
+                        21.7,
+                        145
+                  ],
+                  [
+                        25.8,
+                        78
+                  ],
+                  [
+                        28.5,
+                        88
+                  ],
+                  [
+                        30.4,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 16.4,
+                        "type": "warn",
+                        "text": "Kalandsvatnet exposed wind shelf: crosswinds and sudden resistance changes are common near open water.",
+                        "from": 10.2
+                  },
+                  {
+                        "to": 27.2,
+                        "type": "warn",
+                        "text": "Nesttun/Skjold has junction density. Use this as cooldown safety, not a sprint sector.",
+                        "from": 24.8
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 23.0,
+                        "text": "Smørås rolling blocks",
+                        "from": 18.4
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm-up only."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Kismulvegen/Osbanetraseen",
+                        "Z2 cap; settle into your road position."
+                  ],
+                  [
+                        "C–D",
+                        "Kismulvegen/Osbanetraseen → Osvegen/Kismulvegen",
+                        "Aero endurance if wind allows."
+                  ],
+                  [
+                        "D–E",
+                        "Osvegen/Kismulvegen → Apeltunvegen/Smøråsvegen",
+                        "Tempo feel only, no anaerobic spikes."
+                  ],
+                  [
+                        "E–F",
+                        "Apeltunvegen/Smøråsvegen → Apeltunvegen/Skjoldskiftet",
+                        "Spin over the rollers."
+                  ],
+                  [
+                        "F–A",
+                        "Apeltunvegen/Skjoldskiftet → Rådalslien",
+                        "Cooldown through urban return."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "Good mixed tarmac and cycleway, with a few urban transitions. Watch wet painted markings around Nesttun/Lagunen.",
+                  "wind": "Kalandsvatnet is the signature wind sector; a southwest wind can turn it into a natural strength-endurance block.",
+                  "traffic": "Good weekday evening loop after 18:30. Avoid school pickup around Fana/Stend.",
+                  "stops": "No real stop needed. Kalandsvatnet is a clean 60-second check point if testing setup."
+            }
+      },
+      "r40": {
+            "id": "r40",
+            "targetKm": 40,
+            "tab": "40 km Climb Skills",
+            "bracket": "40 km",
+            "name": "Rådalslien · Fanafjellet / Fanafjellsvegen · Lysekloster Return",
+            "objective": "climbing control + descending technique",
+            "stress": "Med–High",
+            "distanceKm": 41.6,
+            "ascentM": 575,
+            "descentM": 575,
+            "maxAltM": 233,
+            "refSpeedAt200": 26.4,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.258,
+                        5.375
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2825,
+                        5.344
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.2485,
+                        5.371
+                  ],
+                  [
+                        60.238,
+                        5.381
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.2445,
+                        5.392
+                  ],
+                  [
+                        60.258,
+                        5.375
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.281,
+                        5.3425
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Fuel lightly; this route has a real climb early.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 5.8,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Start climb protocol; shift before the gradient.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 10.2,
+                        "name": "Fanafjellet / Fanasæter, Fanafjellsvegen",
+                        "road": "Fanafjellsvegen",
+                        "lat": 60.25703,
+                        "lng": 5.36308,
+                        "desc": "Highest point; hold form over the steep ramps.",
+                        "mapQuery": "Fanafjellet, Fanafjellsvegen, Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 18.4,
+                        "name": "Lyse Abbey Ruins / Lyse kloster",
+                        "road": "Lyseklostervegen",
+                        "lat": 60.22778,
+                        "lng": 5.40556,
+                        "desc": "Scenic checkpoint; safe short pause if needed.",
+                        "mapQuery": "Lyse kloster, Lysekloster, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 27.0,
+                        "name": "Lysekloster, Lyseklostervegen return ramps",
+                        "road": "Lyseklostervegen / Fanafjellsvegen",
+                        "lat": 60.258,
+                        "lng": 5.375,
+                        "desc": "Return climbing bites when tired; stay seated.",
+                        "mapQuery": "Lysekloster, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 34.8,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Back to faster road; ride defensively.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 41.6,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Cooldown the final urban segment.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        5.8,
+                        54
+                  ],
+                  [
+                        7.1,
+                        105
+                  ],
+                  [
+                        8.5,
+                        160
+                  ],
+                  [
+                        9.5,
+                        205
+                  ],
+                  [
+                        10.2,
+                        233
+                  ],
+                  [
+                        12.8,
+                        168
+                  ],
+                  [
+                        15.5,
+                        112
+                  ],
+                  [
+                        18.4,
+                        58
+                  ],
+                  [
+                        23.0,
+                        95
+                  ],
+                  [
+                        27.0,
+                        190
+                  ],
+                  [
+                        30.5,
+                        120
+                  ],
+                  [
+                        34.8,
+                        58
+                  ],
+                  [
+                        38.5,
+                        95
+                  ],
+                  [
+                        41.6,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 10.2,
+                        "type": "danger",
+                        "text": "Fanafjellet 7–10% ramps. Keep the first half seated; cap power unless this is the day’s interval.",
+                        "from": 6.8
+                  },
+                  {
+                        "to": 15.2,
+                        "type": "danger",
+                        "text": "Technical descent after the high point: brake before corners, especially on wet mossy edges.",
+                        "from": 10.2
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 30.5,
+                        "text": "Lysekloster return rollers",
+                        "from": 22.0
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Progressive warm-up."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Fanafjellsvegen",
+                        "Main climb: sweet spot/threshold."
+                  ],
+                  [
+                        "C–D",
+                        "Fanafjellsvegen → Lyseklostervegen",
+                        "Descending control; no blind-corner risks."
+                  ],
+                  [
+                        "D–E",
+                        "Lyseklostervegen → Lyseklostervegen/Fanafjellsvegen",
+                        "Reset, then ride seated over ramps."
+                  ],
+                  [
+                        "E–F",
+                        "Lyseklostervegen/Fanafjellsvegen → Fanavegen",
+                        "Tempo return only if stable."
+                  ],
+                  [
+                        "F–A",
+                        "Fanavegen → Rådalslien",
+                        "Cooldown and traffic focus."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "Fanafjellet feels narrower and more technical than the lowland loops. Descending quality depends heavily on rain, gravel and moss at road edges.",
+                  "wind": "Less lake exposure, but the ridge can feel cooler and gustier than Rådal. Dress for the descent.",
+                  "traffic": "Best early weekend or calm weekday evening. Avoid riding the descent hard during tourist or school traffic.",
+                  "stops": "Lyse Abbey Ruins is the clean scenic stop; avoid stopping on narrow Fanafjellet corners."
+            }
+      },
+      "r50": {
+            "id": "r50",
+            "targetKm": 50,
+            "tab": "50 km Threshold / Fanafjellet",
+            "bracket": "50 km",
+            "name": "Rådalslien · Fanafjellet / Fanafjellsvegen · Lyse kloster · Krokeide ferjekai",
+            "objective": "threshold climb + Krokeidevegen ferry approach awareness",
+            "stress": "High",
+            "distanceKm": 52.4,
+            "ascentM": 705,
+            "descentM": 705,
+            "maxAltM": 233,
+            "refSpeedAt200": 25.0,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2825,
+                        5.344
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.238,
+                        5.381
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.2215,
+                        5.386
+                  ],
+                  [
+                        60.2185,
+                        5.342
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.236,
+                        5.283
+                  ],
+                  [
+                        60.2495,
+                        5.295
+                  ],
+                  [
+                        60.2608,
+                        5.322
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.281,
+                        5.3425
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Start calm; save the legs for the climb.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 6.4,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Start climbing protocol.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 10.8,
+                        "name": "Fanafjellet / Fanasæter, Fanafjellsvegen",
+                        "road": "Fanafjellsvegen",
+                        "lat": 60.25703,
+                        "lng": 5.36308,
+                        "desc": "Steepest work of the route.",
+                        "mapQuery": "Fanafjellet, Fanafjellsvegen, Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 20.0,
+                        "name": "Lyse Abbey Ruins / Lyse kloster",
+                        "road": "Lyseklostervegen",
+                        "lat": 60.22778,
+                        "lng": 5.40556,
+                        "desc": "Scenic checkpoint and first reset.",
+                        "mapQuery": "Lyse kloster, Lysekloster, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 31.2,
+                        "name": "Krokeide ferjekai, Krokeidevegen 687",
+                        "road": "Krokeidevegen",
+                        "lat": 60.224,
+                        "lng": 5.291,
+                        "desc": "Ferry traffic awareness; reset before returning north.",
+                        "mapQuery": "Krokeide ferjekai, Krokeidevegen 687, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 40.6,
+                        "name": "Hordamuseet, Hordnesvegen 24, 5244 Fana",
+                        "road": "Hordnesvegen / Fanavegen",
+                        "lat": 60.2688,
+                        "lng": 5.335,
+                        "desc": "Fast but exposed return; keep visible lane position.",
+                        "mapQuery": "Hordamuseet, Hordnesvegen 24, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "G",
+                        "km": 46.6,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Back into urban/suburban road rhythm.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 52.4,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Cooldown home.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        3.5,
+                        60
+                  ],
+                  [
+                        6.4,
+                        54
+                  ],
+                  [
+                        7.6,
+                        96
+                  ],
+                  [
+                        8.8,
+                        152
+                  ],
+                  [
+                        9.7,
+                        200
+                  ],
+                  [
+                        10.8,
+                        233
+                  ],
+                  [
+                        13.0,
+                        172
+                  ],
+                  [
+                        16.0,
+                        118
+                  ],
+                  [
+                        20.0,
+                        58
+                  ],
+                  [
+                        24.2,
+                        72
+                  ],
+                  [
+                        31.2,
+                        6
+                  ],
+                  [
+                        36.0,
+                        55
+                  ],
+                  [
+                        40.6,
+                        88
+                  ],
+                  [
+                        46.6,
+                        62
+                  ],
+                  [
+                        49.2,
+                        92
+                  ],
+                  [
+                        52.4,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 10.8,
+                        "type": "danger",
+                        "text": "Fanafjellet climb: 7–10% ramps. Do not over-gear; keep breathing controlled.",
+                        "from": 7.2
+                  },
+                  {
+                        "to": 15.0,
+                        "type": "danger",
+                        "text": "Descent toward Lysekloster: wet corners can be unforgiving. Brake early.",
+                        "from": 10.8
+                  },
+                  {
+                        "to": 33.5,
+                        "type": "warn",
+                        "text": "Krokeide Kai: ferry-related vehicles arrive in waves. Wait or ride defensively if a ferry unloads.",
+                        "from": 30.0
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 45.0,
+                        "text": "northbound Fanavegen/Krokeidevegen rolling return",
+                        "from": 34.0
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm-up and position check."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Fanafjellsvegen",
+                        "Main threshold climb."
+                  ],
+                  [
+                        "C–D",
+                        "Fanafjellsvegen → Lyseklostervegen",
+                        "Technical descent, then reset."
+                  ],
+                  [
+                        "D–E",
+                        "Lyseklostervegen → Krokeidevegen",
+                        "Fuel and spin."
+                  ],
+                  [
+                        "E–F",
+                        "Krokeidevegen → Hordnesvegen/Fanavegen",
+                        "Defensive road position after ferry zone."
+                  ],
+                  [
+                        "F–G",
+                        "Hordnesvegen/Fanavegen → Fanavegen",
+                        "Tempo return if traffic is calm."
+                  ],
+                  [
+                        "G–A",
+                        "Fanavegen → Rådalslien",
+                        "Cooldown."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "Mountain-road feel over Fanafjellet, then faster Fanavegen/Krokeidevegen tarmac on the return. Surface changes are the main technical element.",
+                  "wind": "Krokeide/Fanafjorden side can be exposed. West/southwest wind may make the return feel harder than the climb.",
+                  "traffic": "Strong early Sunday route. Avoid ferry pulses at Krokeide and school windows near Stend/Fana.",
+                  "stops": "Lyse Abbey Ruins for scenery; Krokeide Kai for a practical reset away from ferry loading lanes."
+            }
+      },
+      "r60": {
+            "id": "r60",
+            "targetKm": 60,
+            "tab": "60 km Coastal Endurance",
+            "bracket": "60 km",
+            "name": "Rådalslien · Fana · Krokeide · Hjellestad ferjekai · Bergen Airport Flesland Loop",
+            "objective": "aero endurance + crosswind handling",
+            "stress": "Med–High",
+            "distanceKm": 61.0,
+            "ascentM": 620,
+            "descentM": 620,
+            "maxAltM": 170,
+            "refSpeedAt200": 26.2,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.256,
+                        5.23
+                  ],
+                  [
+                        60.27,
+                        5.23
+                  ],
+                  [
+                        60.303,
+                        5.28
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2825,
+                        5.344
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.2608,
+                        5.322
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.2425,
+                        5.27
+                  ],
+                  [
+                        60.256,
+                        5.23
+                  ],
+                  [
+                        60.27,
+                        5.23
+                  ],
+                  [
+                        60.2915,
+                        5.222
+                  ],
+                  [
+                        60.303,
+                        5.28
+                  ],
+                  [
+                        60.2965,
+                        5.3318
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Start with two bottles if weather is warm.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 5.4,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Settle before the longer road south.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 13.4,
+                        "name": "Hordamuseet, Hordnesvegen 24, 5244 Fana",
+                        "road": "Hordnesvegen / Fanavegen",
+                        "lat": 60.2688,
+                        "lng": 5.335,
+                        "desc": "Hold Z2/low tempo; road opens gradually.",
+                        "mapQuery": "Hordamuseet, Hordnesvegen 24, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 26.6,
+                        "name": "Krokeide ferjekai, Krokeidevegen 687",
+                        "road": "Krokeidevegen",
+                        "lat": 60.224,
+                        "lng": 5.291,
+                        "desc": "Ferry/vehicle awareness; good first stop.",
+                        "mapQuery": "Krokeide ferjekai, Krokeidevegen 687, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 36.2,
+                        "name": "Hjellestad ferjekai, Hjellestadvegen",
+                        "road": "Hjellestadvegen / Mildevegen",
+                        "lat": 60.256,
+                        "lng": 5.23,
+                        "desc": "Crosswind handling sector.",
+                        "mapQuery": "Hjellestad ferjekai, Hjellestadvegen, 5259 Hjellestad, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 42.8,
+                        "name": "Milde / Bergen Airport Flesland approach",
+                        "road": "Mildevegen / Flyplassvegen",
+                        "lat": 60.27,
+                        "lng": 5.23,
+                        "desc": "Stay predictable around coastal bends.",
+                        "mapQuery": "Mildevegen, Hjellestad, Bergen, Norway"
+                  },
+                  {
+                        "key": "G",
+                        "km": 50.4,
+                        "name": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal",
+                        "road": "Laguneveien / Apeltunvegen",
+                        "lat": 60.303,
+                        "lng": 5.28,
+                        "desc": "Urban return; reduce speed.",
+                        "mapQuery": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 61.0,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Finish smooth.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        5.4,
+                        58
+                  ],
+                  [
+                        13.4,
+                        95
+                  ],
+                  [
+                        20.0,
+                        130
+                  ],
+                  [
+                        26.6,
+                        6
+                  ],
+                  [
+                        31.0,
+                        55
+                  ],
+                  [
+                        36.2,
+                        42
+                  ],
+                  [
+                        42.8,
+                        68
+                  ],
+                  [
+                        50.4,
+                        110
+                  ],
+                  [
+                        55.0,
+                        82
+                  ],
+                  [
+                        61.0,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 28.8,
+                        "type": "warn",
+                        "text": "Krokeide ferry pulse risk. Hold visible lane position and avoid the gutter when traffic arrives in groups.",
+                        "from": 24.8
+                  },
+                  {
+                        "to": 44.0,
+                        "type": "warn",
+                        "text": "Hjellestad/Milde coastal crosswinds. Avoid deep wheels if gusty; keep elbows soft.",
+                        "from": 35.2
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 22.0,
+                        "text": "southbound Fanavegen/Krokeidevegen rollers",
+                        "from": 12.0
+                  },
+                  {
+                        "to": 55.0,
+                        "text": "Sandsli/Lagunen return rollers",
+                        "from": 48.0
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm-up."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Hordnesvegen/Fanavegen",
+                        "Endurance rhythm."
+                  ],
+                  [
+                        "C–D",
+                        "Hordnesvegen/Fanavegen → Krokeidevegen",
+                        "Longer steady block, watch traffic waves."
+                  ],
+                  [
+                        "D–E",
+                        "Krokeidevegen → Hjellestadvegen/Mildevegen",
+                        "Refuel and stay aero only when safe."
+                  ],
+                  [
+                        "E–F",
+                        "Hjellestadvegen/Mildevegen → Mildevegen/Flyplassvegen",
+                        "Crosswind technique."
+                  ],
+                  [
+                        "F–G",
+                        "Mildevegen/Flyplassvegen → Laguneveien/Apeltunvegen",
+                        "Traffic discipline."
+                  ],
+                  [
+                        "G–A",
+                        "Laguneveien/Apeltunvegen → Rådalslien",
+                        "Cooldown."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "Generally good but variable around coastal roads and urban connectors. Watch wet metal covers, painted lines and debris after rain.",
+                  "wind": "This is the wind-handling route. Krokeide and Hjellestad/Milde can turn a normal endurance ride into a technical control session.",
+                  "traffic": "Best early weekend. Avoid airport/commuter windows around Flyplassvegen/Sandslivegen and ferry-wave groups from Krokeide.",
+                  "stops": "Krokeide Kai is the main reset; choose a spot away from the ferry queue."
+            }
+      },
+      "r70": {
+            "id": "r70",
+            "targetKm": 70,
+            "tab": "70 km Climbing Endurance",
+            "bracket": "70 km",
+            "name": "Rådalslien · Fanafjellet / Fanafjellsvegen · Lysekloster · Søfteland · Kalandsvatnet",
+            "objective": "climbing endurance + lake rollers",
+            "stress": "High",
+            "distanceKm": 70.8,
+            "ascentM": 920,
+            "descentM": 920,
+            "maxAltM": 245,
+            "refSpeedAt200": 24.8,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.302,
+                        5.366
+                  ],
+                  [
+                        60.2965,
+                        5.3318
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2825,
+                        5.344
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.205,
+                        5.44
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.2675,
+                        5.397
+                  ],
+                  [
+                        60.302,
+                        5.366
+                  ],
+                  [
+                        60.315,
+                        5.354
+                  ],
+                  [
+                        60.2965,
+                        5.3318
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Start fueled; this is no longer a short ride.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 6.4,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Begin the controlled climb.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 10.9,
+                        "name": "Fanafjellet / Fanasæter, Fanafjellsvegen",
+                        "road": "Fanafjellsvegen",
+                        "lat": 60.25703,
+                        "lng": 5.36308,
+                        "desc": "Cap power to avoid paying later.",
+                        "mapQuery": "Fanafjellet, Fanafjellsvegen, Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 21.6,
+                        "name": "Lyse Abbey Ruins / Lyse kloster",
+                        "road": "Lyseklostervegen",
+                        "lat": 60.22778,
+                        "lng": 5.40556,
+                        "desc": "First scenic checkpoint.",
+                        "mapQuery": "Lyse kloster, Lysekloster, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 35.0,
+                        "name": "Lyseparken, Bjørnafjorden",
+                        "road": "Byvegen / Vindalsvegen",
+                        "lat": 60.2355,
+                        "lng": 5.4485,
+                        "desc": "Rolling base terrain; eat before the lake sector.",
+                        "mapQuery": "Lyseparken, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 47.0,
+                        "name": "Kalandseid / Kalandsvatnet south, Osvegen",
+                        "road": "Osvegen / Kismulvegen",
+                        "lat": 60.2535,
+                        "lng": 5.441,
+                        "desc": "Lake wind check.",
+                        "mapQuery": "Kalandseid, Osvegen, Bergen, Norway"
+                  },
+                  {
+                        "key": "G",
+                        "km": 56.8,
+                        "name": "Smørås, Apeltunvegen / Smøråsvegen",
+                        "road": "Apeltunvegen / Smøråsvegen",
+                        "lat": 60.302,
+                        "lng": 5.366,
+                        "desc": "Fatigue rollers start here.",
+                        "mapQuery": "Smørås, Apeltunvegen, 5238 Rådal, Norway"
+                  },
+                  {
+                        "key": "H",
+                        "km": 64.4,
+                        "name": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal",
+                        "road": "Laguneveien / Apeltunvegen",
+                        "lat": 60.2965,
+                        "lng": 5.3318,
+                        "desc": "Urban cooldown begins.",
+                        "mapQuery": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 70.8,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Finish easy unless doing a planned final tempo block.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        6.4,
+                        54
+                  ],
+                  [
+                        8.8,
+                        155
+                  ],
+                  [
+                        10.9,
+                        233
+                  ],
+                  [
+                        15,
+                        130
+                  ],
+                  [
+                        21.6,
+                        58
+                  ],
+                  [
+                        28,
+                        115
+                  ],
+                  [
+                        35,
+                        92
+                  ],
+                  [
+                        42,
+                        150
+                  ],
+                  [
+                        47,
+                        98
+                  ],
+                  [
+                        52,
+                        118
+                  ],
+                  [
+                        56.8,
+                        145
+                  ],
+                  [
+                        64.4,
+                        72
+                  ],
+                  [
+                        70.8,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 10.9,
+                        "type": "danger",
+                        "text": "Fanafjellet steep sector. Ride it at sweet spot unless this is interval day.",
+                        "from": 7.2
+                  },
+                  {
+                        "to": 51.0,
+                        "type": "warn",
+                        "text": "Kalandsvatnet wind can create silent power drift when tired. Eat before the sector.",
+                        "from": 45.5
+                  },
+                  {
+                        "to": 63.0,
+                        "type": "warn",
+                        "text": "Late rollers toward Smørås/Nesttun can invite unnecessary surges. Keep cadence smooth.",
+                        "from": 56.0
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 44,
+                        "text": "Søfteland rolling terrain",
+                        "from": 30
+                  },
+                  {
+                        "to": 63,
+                        "text": "late return rollers",
+                        "from": 52
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm-up."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Fanafjellsvegen",
+                        "Controlled climb."
+                  ],
+                  [
+                        "C–D",
+                        "Fanafjellsvegen → Lyseklostervegen",
+                        "Descend cleanly."
+                  ],
+                  [
+                        "D–E",
+                        "Lyseklostervegen → Byvegen/Vindalsvegen",
+                        "Fuel every 20 min."
+                  ],
+                  [
+                        "E–F",
+                        "Byvegen/Vindalsvegen → Osvegen/Kismulvegen",
+                        "Steady base pressure."
+                  ],
+                  [
+                        "F–G",
+                        "Osvegen/Kismulvegen → Apeltunvegen/Smøråsvegen",
+                        "Wind-aware endurance."
+                  ],
+                  [
+                        "G–H",
+                        "Apeltunvegen/Smøråsvegen → Laguneveien/Apeltunvegen",
+                        "Urban safety."
+                  ],
+                  [
+                        "H–A",
+                        "Laguneveien/Apeltunvegen → Rådalslien",
+                        "Cooldown."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "Mixed mountain, rural and suburban tarmac. More surface variation than the 50 km route because of connectors toward Søfteland/Kaland.",
+                  "wind": "Two checks: Fanafjellet descent temperature and Kalandsvatnet crosswind. Do not ignore fueling because wind feels like free resistance training.",
+                  "traffic": "Good weekend morning base route. Avoid weekday school/commuter peaks around Fana, Kaland and Lagunen.",
+                  "stops": "Lyse Abbey for a scenic pause; Kalandsvatnet for a quick bottle check before the urban return."
+            }
+      },
+      "r80": {
+            "id": "r80",
+            "targetKm": 80,
+            "tab": "80 km Base + Os Extension",
+            "bracket": "80 km",
+            "name": "Rådalslien · Fanafjellet / Fanafjellsvegen · Lyse kloster · Osøyro · Kalandsvatnet",
+            "objective": "long aerobic base + nutrition practice",
+            "stress": "Very High",
+            "distanceKm": 81.2,
+            "ascentM": 1050,
+            "descentM": 1050,
+            "maxAltM": 255,
+            "refSpeedAt200": 24.4,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.315,
+                        5.354
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2825,
+                        5.344
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.205,
+                        5.44
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.216,
+                        5.455
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.2675,
+                        5.397
+                  ],
+                  [
+                        60.302,
+                        5.366
+                  ],
+                  [
+                        60.315,
+                        5.354
+                  ],
+                  [
+                        60.2965,
+                        5.3318
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Start fed; carry real carbs.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 6.5,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "First discipline test: do not over-ride.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 11.0,
+                        "name": "Fanafjellet / Fanasæter, Fanafjellsvegen",
+                        "road": "Fanafjellsvegen",
+                        "lat": 60.25703,
+                        "lng": 5.36308,
+                        "desc": "Steep ramps; stay smooth.",
+                        "mapQuery": "Fanafjellet, Fanafjellsvegen, Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 22.0,
+                        "name": "Lyse Abbey Ruins / Lyse kloster",
+                        "road": "Lyseklostervegen",
+                        "lat": 60.22778,
+                        "lng": 5.40556,
+                        "desc": "Scenic checkpoint and first fuel review.",
+                        "mapQuery": "Lyse kloster, Lysekloster, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 38.6,
+                        "name": "Osøyro, Bjørnafjorden",
+                        "road": "Byvegen / Osøyro",
+                        "lat": 60.185,
+                        "lng": 5.47,
+                        "desc": "Main extension; keep it Z2.",
+                        "mapQuery": "Osøyro, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 50.8,
+                        "name": "Søfteland, Bjørnafjorden",
+                        "road": "Byvegen / Vindalsvegen",
+                        "lat": 60.2355,
+                        "lng": 5.4485,
+                        "desc": "Rolling return begins.",
+                        "mapQuery": "Søfteland, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "G",
+                        "km": 61.4,
+                        "name": "Kalandsvatnet north shore, Kismulvegen",
+                        "road": "Kismulvegen / Osbanetraseen",
+                        "lat": 60.2535,
+                        "lng": 5.441,
+                        "desc": "Wind and fatigue management.",
+                        "mapQuery": "Kalandsvatnet, Kismulvegen, Bergen, Norway"
+                  },
+                  {
+                        "key": "H",
+                        "km": 72.0,
+                        "name": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal",
+                        "road": "Laguneveien / Apeltunvegen",
+                        "lat": 60.315,
+                        "lng": 5.354,
+                        "desc": "Safety mode, no ego.",
+                        "mapQuery": "Lagunen Storsenter, Laguneveien 1, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 81.2,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Finish with controlled cadence.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        6.5,
+                        54
+                  ],
+                  [
+                        8.8,
+                        158
+                  ],
+                  [
+                        11,
+                        233
+                  ],
+                  [
+                        16,
+                        120
+                  ],
+                  [
+                        22,
+                        58
+                  ],
+                  [
+                        30,
+                        110
+                  ],
+                  [
+                        38.6,
+                        35
+                  ],
+                  [
+                        45,
+                        115
+                  ],
+                  [
+                        50.8,
+                        90
+                  ],
+                  [
+                        57,
+                        145
+                  ],
+                  [
+                        61.4,
+                        96
+                  ],
+                  [
+                        67,
+                        126
+                  ],
+                  [
+                        72,
+                        78
+                  ],
+                  [
+                        81.2,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 11.0,
+                        "type": "danger",
+                        "text": "Fanafjellet ramps: cap intensity; a hard PR here ruins the final 30 km.",
+                        "from": 7.3
+                  },
+                  {
+                        "to": 64.0,
+                        "type": "warn",
+                        "text": "Kalandsvatnet fatigue/wind combo. Keep fueling and avoid chasing speed.",
+                        "from": 58.0
+                  },
+                  {
+                        "to": 75.0,
+                        "type": "warn",
+                        "text": "Nesttun/Lagunen urban return requires full attention when tired.",
+                        "from": 70.0
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 55,
+                        "text": "Os/Søfteland rolling base block",
+                        "from": 28
+                  },
+                  {
+                        "to": 72,
+                        "text": "late inland rollers",
+                        "from": 62
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm-up."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Fanafjellsvegen",
+                        "Controlled climb, no PR."
+                  ],
+                  [
+                        "C–D",
+                        "Fanafjellsvegen → Lyseklostervegen",
+                        "Brake before corners."
+                  ],
+                  [
+                        "D–E",
+                        "Lyseklostervegen → Byvegen/Osøyro",
+                        "Eat early, Z2 only."
+                  ],
+                  [
+                        "E–F",
+                        "Byvegen/Osøyro → Byvegen/Vindalsvegen",
+                        "Base pressure, relaxed upper body."
+                  ],
+                  [
+                        "F–G",
+                        "Byvegen/Vindalsvegen → Kismulvegen/Osbanetraseen",
+                        "Stay fueled."
+                  ],
+                  [
+                        "G–H",
+                        "Kismulvegen/Osbanetraseen → Laguneveien/Apeltunvegen",
+                        "Fatigue management."
+                  ],
+                  [
+                        "H–A",
+                        "Laguneveien/Apeltunvegen → Rådalslien",
+                        "Cooldown and traffic focus."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "This combines mountain road, rural connectors and faster Os/Søfteland return. Expect variable shoulders and some urban transitions late.",
+                  "wind": "Kalandsvatnet is the clearest wind read. Long inland rollers can feel harder than expected if the wind turns south/southwest.",
+                  "traffic": "Best as an early Sunday ride. Avoid busy Os and Lagunen windows when possible.",
+                  "stops": "Lyse Abbey for photo/fuel; Osøyro for bottle/food if needed before the return."
+            }
+      },
+      "r90": {
+            "id": "r90",
+            "targetKm": 90,
+            "tab": "90 km Gran Fondo Prep",
+            "bracket": "90 km",
+            "name": "Rådalslien · Fanafjellet / Fanafjellsvegen · Osøyro · Kalandsvatnet · Hjellestad ferjekai · Krokeide ferjekai",
+            "objective": "gran-fondo endurance + late technical focus",
+            "stress": "Very High",
+            "distanceKm": 91.7,
+            "ascentM": 1185,
+            "descentM": 1185,
+            "maxAltM": 257,
+            "refSpeedAt200": 23.9,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.303,
+                        5.28
+                  ],
+                  [
+                        60.256,
+                        5.23
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2825,
+                        5.344
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.205,
+                        5.44
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.154,
+                        5.425
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.2675,
+                        5.397
+                  ],
+                  [
+                        60.302,
+                        5.366
+                  ],
+                  [
+                        60.315,
+                        5.354
+                  ],
+                  [
+                        60.303,
+                        5.28
+                  ],
+                  [
+                        60.2915,
+                        5.222
+                  ],
+                  [
+                        60.256,
+                        5.23
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Start like a long ride: calm and fueled.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 6.5,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "First climb starts.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 11.0,
+                        "name": "Fanafjellet / Fanasæter, Fanafjellsvegen",
+                        "road": "Fanafjellsvegen",
+                        "lat": 60.25703,
+                        "lng": 5.36308,
+                        "desc": "Early steep sector.",
+                        "mapQuery": "Fanafjellet, Fanafjellsvegen, Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 22.0,
+                        "name": "Lyse Abbey Ruins / Lyse kloster",
+                        "road": "Lyseklostervegen",
+                        "lat": 60.22778,
+                        "lng": 5.40556,
+                        "desc": "First scenic milestone.",
+                        "mapQuery": "Lyse kloster, Lysekloster, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 38.5,
+                        "name": "Osøyro, Bjørnafjorden",
+                        "road": "Byvegen / Osøyro",
+                        "lat": 60.185,
+                        "lng": 5.47,
+                        "desc": "Food/bottle option.",
+                        "mapQuery": "Osøyro, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 52.5,
+                        "name": "Søfteland, Bjørnafjorden",
+                        "road": "Byvegen / Vindalsvegen",
+                        "lat": 60.2355,
+                        "lng": 5.4485,
+                        "desc": "Rolling base block.",
+                        "mapQuery": "Søfteland, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "G",
+                        "km": 62.8,
+                        "name": "Kalandsvatnet north shore, Kismulvegen",
+                        "road": "Kismulvegen / Osbanetraseen",
+                        "lat": 60.2535,
+                        "lng": 5.441,
+                        "desc": "Wind + fatigue control.",
+                        "mapQuery": "Kalandsvatnet, Kismulvegen, Bergen, Norway"
+                  },
+                  {
+                        "key": "H",
+                        "km": 72.5,
+                        "name": "Sandslivegen, Sandsli",
+                        "road": "Sandslivegen / Dolvikvegen",
+                        "lat": 60.303,
+                        "lng": 5.28,
+                        "desc": "Traffic-aware connector.",
+                        "mapQuery": "Sandslivegen, Sandsli, Bergen, Norway"
+                  },
+                  {
+                        "key": "I",
+                        "km": 80.0,
+                        "name": "Hjellestad ferjekai, Hjellestadvegen",
+                        "road": "Hjellestadvegen / Mildevegen",
+                        "lat": 60.256,
+                        "lng": 5.23,
+                        "desc": "Crosswind and line discipline.",
+                        "mapQuery": "Hjellestad ferjekai, Hjellestadvegen, 5259 Hjellestad, Norway"
+                  },
+                  {
+                        "key": "J",
+                        "km": 84.8,
+                        "name": "Krokeide ferjekai, Krokeidevegen 687",
+                        "road": "Krokeidevegen",
+                        "lat": 60.224,
+                        "lng": 5.291,
+                        "desc": "Final ferry-road risk zone.",
+                        "mapQuery": "Krokeide ferjekai, Krokeidevegen 687, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 91.7,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Finish easy unless data says you are stable.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        6.5,
+                        54
+                  ],
+                  [
+                        8.8,
+                        158
+                  ],
+                  [
+                        11,
+                        233
+                  ],
+                  [
+                        16,
+                        120
+                  ],
+                  [
+                        22,
+                        58
+                  ],
+                  [
+                        32,
+                        112
+                  ],
+                  [
+                        38.5,
+                        35
+                  ],
+                  [
+                        45,
+                        120
+                  ],
+                  [
+                        52.5,
+                        92
+                  ],
+                  [
+                        58,
+                        145
+                  ],
+                  [
+                        62.8,
+                        96
+                  ],
+                  [
+                        68,
+                        128
+                  ],
+                  [
+                        72.5,
+                        105
+                  ],
+                  [
+                        78,
+                        50
+                  ],
+                  [
+                        80,
+                        38
+                  ],
+                  [
+                        84.8,
+                        6
+                  ],
+                  [
+                        88,
+                        90
+                  ],
+                  [
+                        91.7,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 11.0,
+                        "type": "danger",
+                        "text": "Fanafjellet steep sector. Ride below threshold unless planned.",
+                        "from": 7.3
+                  },
+                  {
+                        "to": 66.0,
+                        "type": "warn",
+                        "text": "Kalandsvatnet: wind can hide fatigue. Eat before you feel empty.",
+                        "from": 60.0
+                  },
+                  {
+                        "to": 82.0,
+                        "type": "warn",
+                        "text": "Flesland/Hjellestad: coastal wind + traffic. Keep a predictable line.",
+                        "from": 72.0
+                  },
+                  {
+                        "to": 86.5,
+                        "type": "danger",
+                        "text": "Krokeide ferry-wave traffic late in ride. Do not force gaps when tired.",
+                        "from": 83.5
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 58,
+                        "text": "Os/Søfteland rolling base",
+                        "from": 30
+                  },
+                  {
+                        "to": 76,
+                        "text": "late airport connector rollers",
+                        "from": 66
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm-up."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Fanafjellsvegen",
+                        "Controlled climb."
+                  ],
+                  [
+                        "C–D",
+                        "Fanafjellsvegen → Lyseklostervegen",
+                        "Technical descent."
+                  ],
+                  [
+                        "D–E",
+                        "Lyseklostervegen → Byvegen/Osøyro",
+                        "Base + fueling."
+                  ],
+                  [
+                        "E–F",
+                        "Byvegen/Osøyro → Byvegen/Vindalsvegen",
+                        "Long aerobic block."
+                  ],
+                  [
+                        "F–G",
+                        "Byvegen/Vindalsvegen → Kismulvegen/Osbanetraseen",
+                        "Eat before wind sector."
+                  ],
+                  [
+                        "G–H",
+                        "Kismulvegen/Osbanetraseen → Sandslivegen/Dolvikvegen",
+                        "Late rollers."
+                  ],
+                  [
+                        "H–I",
+                        "Sandslivegen/Dolvikvegen → Hjellestadvegen/Mildevegen",
+                        "Crosswind handling."
+                  ],
+                  [
+                        "I–J",
+                        "Hjellestadvegen/Mildevegen → Krokeidevegen",
+                        "Safety first."
+                  ],
+                  [
+                        "J–A",
+                        "Krokeidevegen → Rådalslien",
+                        "Cooldown return."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "The most varied route before the full century: mountain descent, rural roads, lake exposure, airport connectors and Krokeidevegen ferry approach return.",
+                  "wind": "This route has three wind reads: Kalandsvatnet, Flesland/Hjellestad coast, and Krokeide. A southwest wind makes the final 20 km mentally demanding.",
+                  "traffic": "Best early Sunday. Avoid ferry unloading waves and airport/commuter traffic late in the route.",
+                  "stops": "Lyse Abbey, Osøyro and Krokeide are the best logical stops. Do not leave fueling until Krokeide."
+            }
+      },
+      "r100": {
+            "id": "r100",
+            "targetKm": 100,
+            "tab": "100 km Century Base",
+            "bracket": "100 km",
+            "name": "Rådalslien · Fanafjellet / Fanafjellsvegen · Osøyro · Kalandsvatnet · Hjellestad ferjekai · Krokeide ferjekai Century",
+            "objective": "century base + nutrition execution",
+            "stress": "Epic",
+            "distanceKm": 101.6,
+            "ascentM": 1260,
+            "descentM": 1260,
+            "maxAltM": 257,
+            "refSpeedAt200": 24.0,
+            "color": "#ef4444",
+            "roadSnapWaypoints": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.303,
+                        5.28
+                  ],
+                  [
+                        60.2915,
+                        5.222
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "coords": [
+                  [
+                        60.29306,
+                        5.330751
+                  ],
+                  [
+                        60.2825,
+                        5.344
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.25703,
+                        5.36308
+                  ],
+                  [
+                        60.22778,
+                        5.40556
+                  ],
+                  [
+                        60.205,
+                        5.44
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.154,
+                        5.425
+                  ],
+                  [
+                        60.185,
+                        5.47
+                  ],
+                  [
+                        60.216,
+                        5.455
+                  ],
+                  [
+                        60.2355,
+                        5.4485
+                  ],
+                  [
+                        60.2535,
+                        5.441
+                  ],
+                  [
+                        60.2675,
+                        5.397
+                  ],
+                  [
+                        60.302,
+                        5.366
+                  ],
+                  [
+                        60.315,
+                        5.354
+                  ],
+                  [
+                        60.303,
+                        5.28
+                  ],
+                  [
+                        60.2915,
+                        5.222
+                  ],
+                  [
+                        60.256,
+                        5.23
+                  ],
+                  [
+                        60.224,
+                        5.291
+                  ],
+                  [
+                        60.236,
+                        5.283
+                  ],
+                  [
+                        60.251,
+                        5.302
+                  ],
+                  [
+                        60.2688,
+                        5.335
+                  ],
+                  [
+                        60.2655,
+                        5.3532
+                  ],
+                  [
+                        60.281,
+                        5.3425
+                  ],
+                  [
+                        60.29306,
+                        5.330751
+                  ]
+            ],
+            "checkpoints": [
+                  {
+                        "key": "A",
+                        "km": 0,
+                        "name": "Rådalslien 117, 5239 Rådal (start)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Start with full bottles and carbs; this is a training day, not a survival test.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  },
+                  {
+                        "key": "B",
+                        "km": 7.0,
+                        "name": "Fana kirke, Fanavegen 320, 5244 Fana",
+                        "road": "Fanavegen",
+                        "lat": 60.2655,
+                        "lng": 5.3532,
+                        "desc": "Climb discipline starts here.",
+                        "mapQuery": "Fana kirke, Fanavegen 320, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "C",
+                        "km": 11.3,
+                        "name": "Fanafjellet / Fanasæter, Fanafjellsvegen",
+                        "road": "Fanafjellsvegen",
+                        "lat": 60.25703,
+                        "lng": 5.36308,
+                        "desc": "First major altitude marker.",
+                        "mapQuery": "Fanafjellet, Fanafjellsvegen, Fana, Norway"
+                  },
+                  {
+                        "key": "D",
+                        "km": 22.4,
+                        "name": "Lyse Abbey Ruins / Lyse kloster",
+                        "road": "Lyseklostervegen",
+                        "lat": 60.22778,
+                        "lng": 5.40556,
+                        "desc": "Scenic checkpoint; first real nutrition audit.",
+                        "mapQuery": "Lyse kloster, Lysekloster, Norway"
+                  },
+                  {
+                        "key": "E",
+                        "km": 36.8,
+                        "name": "Osøyro, Bjørnafjorden",
+                        "road": "Byvegen / Osøyro",
+                        "lat": 60.185,
+                        "lng": 5.47,
+                        "desc": "Keep engine down; long way home.",
+                        "mapQuery": "Osøyro, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "F",
+                        "km": 51.5,
+                        "name": "Lyseparken, Bjørnafjorden",
+                        "road": "Byvegen / Vindalsvegen",
+                        "lat": 60.2355,
+                        "lng": 5.4485,
+                        "desc": "Rolling endurance block.",
+                        "mapQuery": "Lyseparken, Bjørnafjorden, Norway"
+                  },
+                  {
+                        "key": "G",
+                        "km": 61.5,
+                        "name": "Kalandseid / Kalandsvatnet south, Osvegen",
+                        "road": "Osvegen / Kismulvegen",
+                        "lat": 60.2535,
+                        "lng": 5.441,
+                        "desc": "Lake wind and fatigue check.",
+                        "mapQuery": "Kalandseid, Osvegen, Bergen, Norway"
+                  },
+                  {
+                        "key": "H",
+                        "km": 72.5,
+                        "name": "Nesttun terminal, Østre Nesttunvegen",
+                        "road": "Østre Nesttunvegen / Apeltunvegen",
+                        "lat": 60.303,
+                        "lng": 5.28,
+                        "desc": "Urban/airport connector; calm decisions.",
+                        "mapQuery": "Nesttun terminal, Østre Nesttunvegen, Bergen, Norway"
+                  },
+                  {
+                        "key": "I",
+                        "km": 80.0,
+                        "name": "Hjellestad ferjekai, Hjellestadvegen",
+                        "road": "Hjellestadvegen / Mildevegen",
+                        "lat": 60.2915,
+                        "lng": 5.222,
+                        "desc": "Open wind sector.",
+                        "mapQuery": "Hjellestad ferjekai, Hjellestadvegen, 5259 Hjellestad, Norway"
+                  },
+                  {
+                        "key": "J",
+                        "km": 88.0,
+                        "name": "Krokeide ferjekai, Krokeidevegen 687",
+                        "road": "Krokeidevegen",
+                        "lat": 60.224,
+                        "lng": 5.291,
+                        "desc": "Final major stop/risk zone.",
+                        "mapQuery": "Krokeide ferjekai, Krokeidevegen 687, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "K",
+                        "km": 95.2,
+                        "name": "Hordamuseet, Hordnesvegen 24, 5244 Fana",
+                        "road": "Hordnesvegen / Fanavegen",
+                        "lat": 60.2688,
+                        "lng": 5.335,
+                        "desc": "Final controlled tempo or cooldown.",
+                        "mapQuery": "Hordamuseet, Hordnesvegen 24, 5244 Fana, Norway"
+                  },
+                  {
+                        "key": "A",
+                        "km": 101.6,
+                        "name": "Rådalslien 117, 5239 Rådal (finish)",
+                        "road": "Rådalslien",
+                        "lat": 60.29306,
+                        "lng": 5.330751,
+                        "desc": "Finish the century loop. Review fueling and pacing data.",
+                        "mapQuery": "Rådalslien 117, 5239 Rådal, Norway"
+                  }
+            ],
+            "profile": [
+                  [
+                        0,
+                        72
+                  ],
+                  [
+                        7,
+                        54
+                  ],
+                  [
+                        8.8,
+                        160
+                  ],
+                  [
+                        10,
+                        205
+                  ],
+                  [
+                        11.3,
+                        233
+                  ],
+                  [
+                        16,
+                        125
+                  ],
+                  [
+                        22.4,
+                        58
+                  ],
+                  [
+                        31,
+                        118
+                  ],
+                  [
+                        36.8,
+                        35
+                  ],
+                  [
+                        44,
+                        125
+                  ],
+                  [
+                        51.5,
+                        92
+                  ],
+                  [
+                        57,
+                        150
+                  ],
+                  [
+                        61.5,
+                        96
+                  ],
+                  [
+                        67,
+                        126
+                  ],
+                  [
+                        72.5,
+                        108
+                  ],
+                  [
+                        78,
+                        65
+                  ],
+                  [
+                        80,
+                        42
+                  ],
+                  [
+                        88,
+                        6
+                  ],
+                  [
+                        92,
+                        70
+                  ],
+                  [
+                        95.2,
+                        90
+                  ],
+                  [
+                        101.6,
+                        72
+                  ]
+            ],
+            "warnings": [
+                  {
+                        "to": 11.3,
+                        "type": "danger",
+                        "text": "First Fanafjellet hit: 7–10% ramps early. Ride it like a base ride, not a PR attempt.",
+                        "from": 7.5
+                  },
+                  {
+                        "to": 62.0,
+                        "type": "warn",
+                        "text": "Kalandsvatnet and inland rollers: fatigue + wind can create silent power drift. Eat before this section.",
+                        "from": 52.0
+                  },
+                  {
+                        "to": 82.0,
+                        "type": "warn",
+                        "text": "Flesland/Hjellestad coastal roads: crosswind and fast vehicles. Maintain line discipline.",
+                        "from": 72.0
+                  },
+                  {
+                        "to": 89.5,
+                        "type": "danger",
+                        "text": "Krokeide ferry-wave traffic: if a ferry unloads, wait or ride defensively until the vehicle group clears.",
+                        "from": 86.5
+                  }
+            ],
+            "rollers": [
+                  {
+                        "to": 64,
+                        "text": "Os/Kalandsvatnet base rollers",
+                        "from": 43
+                  },
+                  {
+                        "to": 99,
+                        "text": "late-return fatigue rollers",
+                        "from": 90
+                  }
+            ],
+            "pacing": [
+                  [
+                        "A–B",
+                        "Rådalslien → Fanavegen",
+                        "Warm-up, no spikes."
+                  ],
+                  [
+                        "B–C",
+                        "Fanavegen → Fanafjellsvegen",
+                        "Climb below threshold."
+                  ],
+                  [
+                        "C–D",
+                        "Fanafjellsvegen → Lyseklostervegen",
+                        "Technical descent."
+                  ],
+                  [
+                        "D–E",
+                        "Lyseklostervegen → Byvegen/Osøyro",
+                        "Eat every 20 min."
+                  ],
+                  [
+                        "E–F",
+                        "Byvegen/Osøyro → Byvegen/Vindalsvegen",
+                        "Long aerobic block."
+                  ],
+                  [
+                        "F–G",
+                        "Byvegen/Vindalsvegen → Osvegen/Kismulvegen",
+                        "Steady pressure."
+                  ],
+                  [
+                        "G–H",
+                        "Osvegen/Kismulvegen → Østre Nesttunvegen/Apeltunvegen",
+                        "Late concentration."
+                  ],
+                  [
+                        "H–I",
+                        "Østre Nesttunvegen/Apeltunvegen → Hjellestadvegen/Mildevegen",
+                        "Crosswind technique."
+                  ],
+                  [
+                        "I–J",
+                        "Hjellestadvegen/Mildevegen → Krokeidevegen",
+                        "Safety first."
+                  ],
+                  [
+                        "J–K",
+                        "Krokeidevegen → Hordnesvegen/Fanavegen",
+                        "Final road return."
+                  ],
+                  [
+                        "K–A",
+                        "Hordnesvegen/Fanavegen → Rådalslien",
+                        "Cooldown home."
+                  ]
+            ],
+            "strategy": {
+                  "tarmac": "Mixed high-quality tarmac, urban connectors, mountain-road descent and exposed coastal sectors. The limiter is accumulated variability after 70 km.",
+                  "wind": "Two wind reads matter most: Kalandsvatnet for lake crosswind and Flesland/Hjellestad/Krokeide for stronger coastal gust exposure.",
+                  "traffic": "Best as an early Sunday start. Avoid afternoon ferry pulses at Krokeide and weekday airport/commuter periods around Flyplassvegen/Sandslivegen.",
+                  "stops": "Lyse Abbey Ruins = scenic milestone, Osøyro = bottle/food option, Krokeide Kai = final reset. Do not stop on narrow Fanafjellet corners."
+            }
+      }
+};
+
+    let activeId = 'r20';
+    let estimatorMode = 'speed';
+    let map, routeLine, markerLayer, roadLabelLayer, snapped = false, currentBounds;
+
+    const $ = (id) => document.getElementById(id);
+    const fmtKm = (n) => `${n.toFixed(1)} km`;
+    const fmtM = (n) => `${Math.round(n)} m`;
+    const minToHhmm = (mins) => {
+      const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+      return h > 0 ? `${h}h ${String(m).padStart(2,'0')}m` : `${m}m`;
+    };
+
+
+    const trainingZones = [
+      {
+        id: 'z1',
+        name: 'Z1 Recovery',
+        pct: [0.00, 0.55],
+        hrr: [0.50, 0.60],
+        rpe: 'RPE 1–2',
+        feel: 'Very easy spinning. Breathing is calm and you can hold a full conversation without effort.',
+        use: 'Warm-up, cooldown, active recovery, or between hard efforts.'
+      },
+      {
+        id: 'z2easy',
+        name: 'Z2 Easy',
+        pct: [0.56, 0.65],
+        hrr: [0.60, 0.68],
+        rpe: 'RPE 2–3',
+        feel: 'Comfortable aerobic riding. You feel fresh, smooth and controlled with no burning in the legs.',
+        use: 'Recovery-endurance days, first 15 minutes of any ride, technical roads, traffic zones and after climbs.'
+      },
+      {
+        id: 'z2',
+        name: 'Z2 Endurance',
+        pct: [0.66, 0.75],
+        hrr: [0.68, 0.75],
+        rpe: 'RPE 3–4',
+        feel: 'Purposeful endurance. You can speak in full sentences, but you are clearly training.',
+        use: 'Main base-building zone for 30–100 km routes, fat oxidation, aerobic durability and long steady pacing.'
+      },
+      {
+        id: 'z3',
+        name: 'Z3 Tempo',
+        pct: [0.76, 0.87],
+        hrr: [0.76, 0.84],
+        rpe: 'RPE 5–6',
+        feel: 'Firm pressure. Conversation becomes short and you need focus to keep the effort smooth.',
+        use: 'Rolling terrain, controlled climbs, aero endurance blocks and steady pressure without going all-out.'
+      },
+      {
+        id: 'sweetspot',
+        name: 'Sweet Spot',
+        pct: [0.88, 0.94],
+        hrr: [0.85, 0.88],
+        rpe: 'RPE 7',
+        feel: 'Hard but controlled. Sustainable for blocks, but fueling and pacing start to matter a lot.',
+        use: 'Efficient fitness work when you want more stimulus than endurance without full threshold fatigue.'
+      },
+      {
+        id: 'threshold',
+        name: 'Threshold',
+        pct: [0.95, 1.05],
+        hrr: [0.89, 0.95],
+        rpe: 'RPE 8–9',
+        feel: 'Very hard and precise. You can only speak a few words and small pacing mistakes become expensive.',
+        use: 'Fanafjellet-style climb efforts, race-specific work and short focused intervals inside a route.'
+      },
+      {
+        id: 'vo2',
+        name: 'VO₂ / Anaerobic',
+        pct: [1.06, 1.25],
+        hrr: [0.96, 1.00],
+        rpe: 'RPE 9–10',
+        feel: 'Short, sharp and uncomfortable. Breathing is heavy and recovery is required afterwards.',
+        use: 'Short hills, attacks, punchy intervals or brief surges. Not the main target for long Bergen loops.'
+      }
+    ];
+
+
+
+    const SMART_HOME = { label: 'Rådalslien 117, 5239 Rådal, Norway', lat: START[0], lng: START[1] };
+    let smartStart = { ...SMART_HOME };
+    let smartEnd = null;
+
+    function escapeHtml(s = '') {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function setSmartStatus(html, kind = '') {
+      const node = $('smartStatus');
+      if (!node) return;
+      node.innerHTML = html;
+      node.dataset.kind = kind;
+    }
+
+    function parseLatLng(text) {
+      const m = String(text || '').trim().match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+      if (!m) return null;
+      const lat = Number(m[1]), lng = Number(m[2]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+      return { lat, lng, label: `${lat.toFixed(6)}, ${lng.toFixed(6)}` };
+    }
+
+    async function geocodePlace(text) {
+      const parsed = parseLatLng(text);
+      if (parsed) return parsed;
+      const q = String(text || '').trim();
+      if (!q) throw new Error('Missing place text');
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error(`Geocoder HTTP ${res.status}`);
+      const json = await res.json();
+      if (!json?.length) throw new Error(`Could not find “${q}”`);
+      return { lat: Number(json[0].lat), lng: Number(json[0].lon), label: json[0].display_name || q };
+    }
+
+    function haversineKm(a, b) {
+      const R = 6371;
+      const dLat = (b[0] - a[0]) * Math.PI / 180;
+      const dLng = (b[1] - a[1]) * Math.PI / 180;
+      const lat1 = a[0] * Math.PI / 180, lat2 = b[0] * Math.PI / 180;
+      const x = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+      return 2 * R * Math.asin(Math.sqrt(x));
+    }
+
+    function coordsLengthKm(coords) {
+      let d = 0;
+      for (let i = 1; i < coords.length; i++) d += haversineKm(coords[i-1], coords[i]);
+      return d;
+    }
+
+    function destinationPoint(lat, lng, distanceKm, bearingDeg) {
+      const R = 6371, br = bearingDeg * Math.PI / 180;
+      const φ1 = lat * Math.PI / 180, λ1 = lng * Math.PI / 180;
+      const δ = distanceKm / R;
+      const φ2 = Math.asin(Math.sin(φ1)*Math.cos(δ) + Math.cos(φ1)*Math.sin(δ)*Math.cos(br));
+      const λ2 = λ1 + Math.atan2(Math.sin(br)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ)-Math.sin(φ1)*Math.sin(φ2));
+      return [φ2 * 180 / Math.PI, ((λ2 * 180 / Math.PI + 540) % 360) - 180];
+    }
+
+    function fallbackLoopFrom(start, targetKm, seed = 17) {
+      const radius = Math.max(1.6, targetKm / 6.1);
+      const base = (seed * 37) % 360;
+      const coords = [[start.lat, start.lng]];
+      [0, 72, 151, 226, 305].forEach((offset, i) => {
+        const wave = i % 2 === 0 ? 1.05 : .78;
+        coords.push(destinationPoint(start.lat, start.lng, radius * wave, base + offset));
+      });
+      coords.push([start.lat, start.lng]);
+      return coords;
+    }
+
+    function decodeSignedPolylineValue(str, state) {
+      let result = 0;
+      let shift = 0;
+      let byte = null;
+      do {
+        if (state.index >= str.length) return null;
+        byte = str.charCodeAt(state.index++) - 63;
+        result |= (byte & 0x1f) << shift;
+        shift += 5;
+      } while (byte >= 0x20);
+      return (result & 1) ? ~(result >> 1) : (result >> 1);
+    }
+
+    function decodeOrsPolyline(encoded, force3d = true) {
+      if (!encoded || typeof encoded !== 'string') return [];
+      const coords = [];
+      const state = { index: 0 };
+      let lat = 0, lng = 0, ele = 0;
+      while (state.index < encoded.length) {
+        const dLat = decodeSignedPolylineValue(encoded, state);
+        const dLng = decodeSignedPolylineValue(encoded, state);
+        if (dLat === null || dLng === null) break;
+        lat += dLat;
+        lng += dLng;
+        const point = [lat * 1e-5, lng * 1e-5];
+        if (force3d && state.index < encoded.length) {
+          const dEle = decodeSignedPolylineValue(encoded, state);
+          if (dEle !== null) {
+            ele += dEle;
+            point.push(ele / 100);
+          }
+        }
+        coords.push(point);
+      }
+      return coords;
+    }
+
+    function normaliseLngLatArray(raw) {
+      if (!Array.isArray(raw)) return [];
+      return raw
+        .map(c => Array.isArray(c) && c.length >= 2 ? [Number(c[1]), Number(c[0]), Number(c[2])] : null)
+        .filter(c => c && Number.isFinite(c[0]) && Number.isFinite(c[1]));
+    }
+
+    function orientDecodedPolyline(decoded, start) {
+      const clean = decoded.filter(c => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1]));
+      if (!clean.length) return [];
+      const asLatLng = clean.map(c => [c[0], c[1], c[2]]);
+      const asLngLat = clean.map(c => [c[1], c[0], c[2]]);
+      const home = [start.lat, start.lng];
+      const dLatLng = haversineKm(asLatLng[0], home);
+      const dLngLat = haversineKm(asLngLat[0], home);
+      return dLatLng <= dLngLat ? asLatLng : asLngLat;
+    }
+
+    function parseOrsRouteResponse(json, start) {
+      const feature = json?.features?.[0] || (json?.type === 'Feature' ? json : null);
+      if (feature?.geometry?.coordinates?.length) {
+        return {
+          coords: normaliseLngLatArray(feature.geometry.coordinates),
+          props: feature.properties || {},
+          instructions: (feature.properties?.segments || []).flatMap(s => s.steps || []),
+          format: 'GeoJSON'
+        };
+      }
+
+      const route = json?.routes?.[0] || json?.route || null;
+      if (route) {
+        let coords = [];
+        if (Array.isArray(route.geometry?.coordinates)) {
+          coords = normaliseLngLatArray(route.geometry.coordinates);
+        } else if (Array.isArray(route.geometry)) {
+          coords = normaliseLngLatArray(route.geometry);
+        } else if (typeof route.geometry === 'string') {
+          coords = orientDecodedPolyline(decodeOrsPolyline(route.geometry, true), start);
+          if (coords.length < 2) coords = orientDecodedPolyline(decodeOrsPolyline(route.geometry, false), start);
+        }
+        return {
+          coords,
+          props: { summary: route.summary || {}, segments: route.segments || [], extras: route.extras || {} },
+          instructions: (route.segments || []).flatMap(s => s.steps || []),
+          format: typeof route.geometry === 'string' ? 'JSON encoded polyline' : 'JSON geometry'
+        };
+      }
+
+      const direct = json?.geometry?.coordinates || json?.coordinates;
+      if (Array.isArray(direct)) {
+        return { coords: normaliseLngLatArray(direct), props: json.properties || json, instructions: [], format: 'direct geometry' };
+      }
+
+      throw new Error('No supported route geometry found in routing response');
+    }
+
+    function buildProfileFromCoords(coords, distanceKm, fallbackAscent = 0) {
+      if (!coords.length) return [[0, 0]];
+      let running = 0;
+      const hasEle = coords.some(c => Number.isFinite(c[2]));
+      const profile = [[0, hasEle ? (coords[0][2] || 0) : 28]];
+      for (let i = 1; i < coords.length; i++) {
+        running += haversineKm(coords[i-1], coords[i]);
+        const ele = hasEle ? (coords[i][2] || 0) : Math.max(8, 34 + 42 * Math.sin((running / Math.max(distanceKm,1)) * Math.PI * 2) + 18 * Math.sin((running / Math.max(distanceKm,1)) * Math.PI * 6));
+        profile.push([Math.min(running, distanceKm), Math.round(ele)]);
+      }
+      if (profile[profile.length - 1][0] < distanceKm) profile.push([distanceKm, profile[profile.length - 1][1]]);
+      return profile;
+    }
+
+    function routeAscent(profile) {
+      let ascent = 0, descent = 0;
+      for (let i = 1; i < profile.length; i++) {
+        const d = profile[i][1] - profile[i-1][1];
+        if (d > 0) ascent += d; else descent += Math.abs(d);
+      }
+      return { ascent: Math.round(ascent), descent: Math.round(descent), maxAlt: Math.max(...profile.map(p => p[1])) };
+    }
+
+    function sampleCheckpointIndices(coords, count) {
+      const out = [];
+      for (let i = 0; i < count; i++) out.push(Math.round(i * (coords.length - 1) / (count - 1)));
+      return [...new Set(out)];
+    }
+
+    function makeSmartRoute({ coords, targetKm, start, end, mode, source, orsProps = null, instructions = [] }) {
+      const actualKm = Math.max(.1, orsProps?.summary?.distance ? orsProps.summary.distance / 1000 : coordsLengthKm(coords));
+      const profile = buildProfileFromCoords(coords, actualKm);
+      const climb = routeAscent(profile);
+      const isRound = mode === 'round';
+      const checkpointCount = isRound ? 6 : 5;
+      const indices = sampleCheckpointIndices(coords, checkpointCount);
+      const checkpoints = indices.map((idx, i) => {
+        const coord = coords[idx];
+        const key = i === 0 || (isRound && i === indices.length - 1) ? 'A' : String.fromCharCode(65 + i);
+        const km = i === 0 ? 0 : Math.min(actualKm, coordsLengthKm(coords.slice(0, idx + 1)));
+        let name = `Smart checkpoint ${key}`;
+        if (i === 0) name = start.label || 'Selected start';
+        if (!isRound && i === indices.length - 1) name = end?.label || 'Selected finish';
+        if (isRound && i === indices.length - 1) name = `${start.label || 'Selected start'} (finish)`;
+        return {
+          key, km, name, road: source === 'ors' ? 'OpenRouteService cycling route' : 'Preview geometry',
+          lat: coord[0], lng: coord[1], mapQuery: `${coord[0]},${coord[1]}`,
+          desc: i === 0 ? 'Start controlled and check GPS lock before rolling.' : 'Dynamic smart-route checkpoint. Validate turn-by-turn guidance before riding.'
+        };
+      });
+      const stepRows = instructions.slice(0, 11).map((step, i) => {
+        const km = (step.distance || 0) / 1000;
+        return [`${km.toFixed(1)} km`, step.name || 'Cycling route', step.instruction || 'Follow the generated cycling route.'];
+      }).filter(row => row[2]);
+      const pacing = stepRows.length ? stepRows : checkpoints.slice(0, -1).map((c, i) => [`${c.key}–${checkpoints[i+1].key}`, c.road, 'Follow generated route; keep HR controlled until the route is validated.']);
+      const warnings = [
+        { from: Math.max(0, actualKm * .18), to: Math.min(actualKm, actualKm * .28), type: 'warn', text: source === 'ors' ? 'Generated routing: check junctions and local cycling signs before committing.' : 'Preview route only: this is not snapped to roads or cycling paths.' },
+        { from: Math.max(0, actualKm * .62), to: Math.min(actualKm, actualKm * .76), type: 'danger', text: 'Treat unknown steep sectors conservatively; stay seated and let HR settle after climbs.' }
+      ];
+      return {
+        id: 'smart', targetKm, tab: `Smart ${targetKm} km`, bracket: `${Math.round(actualKm)} km`,
+        name: isRound ? `Smart ${targetKm} km round trip from ${start.label || 'selected start'}` : `Smart route: ${start.label || 'start'} → ${end?.label || 'finish'}`,
+        objective: source === 'ors' ? 'dynamic cycling-road planning' : 'preview only — validate before riding',
+        stress: targetKm >= 80 ? 'High' : targetKm >= 50 ? 'Medium' : 'Low',
+        distanceKm: actualKm, ascentM: climb.ascent || Math.round(actualKm * 8), descentM: climb.descent || Math.round(actualKm * 8), maxAltM: Math.round(climb.maxAlt || 120), refSpeedAt200: 29,
+        color: '#ef4444', roadSnapWaypoints: coords.filter((_,i) => i % Math.max(1, Math.floor(coords.length/8)) === 0).map(c => [c[0], c[1]]), coords, checkpoints, profile, warnings, pacing,
+        strategy: {
+          tarmac: source === 'ors' ? 'Generated with a cycling profile. Still inspect surface and waytype in your final cycling app before a fast road ride.' : 'Preview geometry only; it does not know tarmac quality.',
+          wind: 'Use local wind direction on the day. Long exposed Bergen coastal/lake sectors can turn a Z2 ride into tempo quickly.',
+          traffic: 'Generated routes need a safety check for junctions, tunnels, ferry areas and commuter roads. Prefer early weekend windows for long loops.',
+          stops: targetKm >= 70 ? 'Plan one bottle/food reset around halfway and another before the final 25 km.' : 'Short route: carry water; stop only if you need navigation confirmation.'
+        }
+      };
+    }
+
+    function buildOrsRequestBody({ start, end, targetKm, mode, preset, points, seed }) {
+      const avoid = ['steps'];
+      if (preset !== 'scenic') avoid.push('ferries');
+      const options = { avoid_features: avoid };
+      if (preset === 'climb-lite') {
+        options.profile_params = { weightings: { steepness_difficulty: 2 } };
+      }
+      if (mode === 'round') options.round_trip = { length: targetKm * 1000, points, seed };
+      return {
+        coordinates: mode === 'round' ? [[start.lng, start.lat]] : [[start.lng, start.lat], [end.lng, end.lat]],
+        elevation: true,
+        instructions: true,
+        preference: 'recommended',
+        units: 'm',
+        extra_info: ['steepness', 'surface', 'waytype', 'suitability'],
+        options
+      };
+    }
+
+    async function requestOrsRoute({ start, end, targetKm, mode, profileName, preset, points, seed, apiKey }) {
+      const body = buildOrsRequestBody({ start, end, targetKm, mode, preset, points, seed });
+      const endpoints = [
+        { label: 'GeoJSON', url: `https://api.openrouteservice.org/v2/directions/${profileName}/geojson`, accept: 'application/json, application/geo+json' },
+        { label: 'JSON', url: `https://api.openrouteservice.org/v2/directions/${profileName}/json`, accept: 'application/json' }
+      ];
+      const attempts = [];
+      for (const ep of endpoints) {
+        const res = await fetch(ep.url, {
+          method: 'POST',
+          headers: { 'Authorization': apiKey, 'Content-Type': 'application/json; charset=utf-8', 'Accept': ep.accept },
+          body: JSON.stringify(body)
+        });
+        let payload = null;
+        const text = await res.text();
+        try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
+        if (res.ok && payload) return { json: payload, endpoint: ep.label };
+        const msg = payload?.error?.message || payload?.message || text || `ORS HTTP ${res.status}`;
+        attempts.push(`${ep.label}: ${msg}`);
+        if ([401, 403, 429].includes(res.status)) break;
+      }
+      throw new Error(attempts.join(' · '));
+    }
+
+    function activateSmartRoute(route) {
+      routes.smart = route;
+      activeId = 'smart';
+      initTabs();
+      setActiveRoute('smart');
+    }
+
+    async function buildSmartRoute(useApi = true) {
+      const targetKm = Number($('smartDistance').value);
+      const mode = $('smartMode').value;
+      const profileName = $('smartProfile').value;
+      const preset = $('smartPreset').value;
+      const points = Number($('smartPoints').value);
+      const seed = Number($('smartSeed').value);
+      const apiKey = ($('orsApiKey').value || '').trim();
+      if (apiKey) localStorage.setItem('orsApiKey', apiKey);
+      setSmartStatus('<b>Resolving start/end…</b>');
+      const start = await geocodePlace($('smartStartText').value);
+      smartStart = start;
+      let end = null;
+      if (mode === 'point') {
+        end = await geocodePlace($('smartEndText').value);
+        smartEnd = end;
+      }
+      if (useApi && !apiKey) {
+        setSmartStatus('<span class="bad">Missing ORS key.</span> Paste an OpenRouteService API key, or use “Preview loop without API”.');
+        return;
+      }
+      if (useApi) {
+        setSmartStatus(`<b>Generating cycling route…</b> ${targetKm} km · ${escapeHtml(profileName)} · ${escapeHtml(preset)}`);
+        const { json, endpoint } = await requestOrsRoute({ start, end, targetKm, mode, profileName, preset, points, seed, apiKey });
+        const parsed = parseOrsRouteResponse(json, start);
+        if (!parsed.coords || parsed.coords.length < 2) throw new Error(`${endpoint} returned no usable route geometry`);
+        const route = makeSmartRoute({ coords: parsed.coords, targetKm, start, end, mode, source: 'ors', orsProps: parsed.props, instructions: parsed.instructions });
+        activateSmartRoute(route);
+        setSmartStatus(`<span class="ok">Smart route loaded.</span> Actual route is <b>${route.distanceKm.toFixed(1)} km</b> with estimated ascent <b>${route.ascentM} m</b>. Parsed <b>${escapeHtml(parsed.format)}</b> from ORS <b>${escapeHtml(endpoint)}</b>. Export GPX or open it in Google Maps from the controls above.`);
+      } else {
+        const coords = fallbackLoopFrom(start, targetKm, seed);
+        const route = makeSmartRoute({ coords, targetKm, start, end, mode: 'round', source: 'preview' });
+        activateSmartRoute(route);
+        setSmartStatus(`<span class="warn">Preview only.</span> This shows approximate loop direction and distance from your selected start, but it is not snapped to cycling roads. Use ORS before riding.`);
+      }
+    }
+
+    function initSmartBuilder() {
+      if (!$('generateSmartBtn')) return;
+      const saved = localStorage.getItem('orsApiKey');
+      if (saved) $('orsApiKey').value = saved;
+      $('smartMode').addEventListener('change', () => { $('smartEndField').hidden = $('smartMode').value !== 'point'; });
+      $('useHomeStartBtn').addEventListener('click', () => {
+        smartStart = { ...SMART_HOME };
+        $('smartStartText').value = SMART_HOME.label;
+        setSmartStatus('<b>Start reset.</b> Using Rådalslien 117 again.');
+      });
+      $('useCurrentStartBtn').addEventListener('click', () => {
+        if (!navigator.geolocation) {
+          setSmartStatus('<span class="bad">Geolocation is not available in this browser.</span>');
+          return;
+        }
+        setSmartStatus('<b>Requesting phone/browser location…</b>');
+        navigator.geolocation.getCurrentPosition(pos => {
+          const lat = pos.coords.latitude, lng = pos.coords.longitude;
+          smartStart = { lat, lng, label: `Current position ${lat.toFixed(5)}, ${lng.toFixed(5)}` };
+          $('smartStartText').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+          setSmartStatus(`<span class="ok">Location captured.</span> Start set to <b>${lat.toFixed(5)}, ${lng.toFixed(5)}</b>.`);
+        }, err => {
+          setSmartStatus(`<span class="bad">Location blocked.</span> ${escapeHtml(err.message || 'Allow location access and try again.')}`);
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+      });
+      $('generateSmartBtn').addEventListener('click', async () => {
+        try { await buildSmartRoute(true); } catch (e) { setSmartStatus(`<span class="bad">Could not generate route.</span> ${escapeHtml(e.message)}. Try another seed/profile or use preview.`); }
+      });
+      $('previewSmartBtn').addEventListener('click', async () => {
+        try { await buildSmartRoute(false); } catch (e) { setSmartStatus(`<span class="bad">Could not preview route.</span> ${escapeHtml(e.message)}.`); }
+      });
+      $('clearSmartBtn').addEventListener('click', () => {
+        if (routes.smart) delete routes.smart;
+        initTabs();
+        setActiveRoute('r20');
+        setSmartStatus('<b>Back to curated route ladder.</b> Dynamic route cleared.');
+      });
+    }
+
+    function recommendedZoneForRoute(r) {
+      const objective = r.objective.toLowerCase();
+      if (r.targetKm <= 20 || objective.includes('easy')) {
+        return { id: 'z2easy', label: 'Z2 Easy', note: 'Keep it light. This route is best for recovery endurance, checking bike fit, or adding easy aerobic volume without fatigue.' };
+      }
+      if (objective.includes('threshold')) {
+        return { id: 'threshold', label: 'Threshold', note: 'Use threshold only on the planned climb/effort section. The approach and return should stay Z2 so the ride does not become messy.' };
+      }
+      if (objective.includes('climbing control')) {
+        return { id: 'z3', label: 'Z3 Tempo', note: 'Ride the climbs with controlled tempo pressure, then recover back to Z2 on descents and flatter terrain.' };
+      }
+      if (objective.includes('aero') || objective.includes('climbing endurance') || objective.includes('gran-fondo')) {
+        return { id: 'z2', label: 'Z2 Endurance + short Z3 climbs', note: 'Main target is steady Z2 endurance. Let rollers/climbs touch tempo briefly, but avoid turning the whole loop into threshold work.' };
+      }
+      if (r.targetKm >= 80) {
+        return { id: 'z2', label: 'Z2 Endurance', note: 'For long base-building, the winning move is patience: steady Z2, early fueling and no hero efforts before halfway.' };
+      }
+      return { id: 'z2', label: 'Z2 Endurance', note: 'This is the core aerobic training zone: smooth pressure, controlled breathing and repeatable legs tomorrow.' };
+    }
+
+    function wattsForZone(zone, ftp) {
+      if (zone.pct[0] === 0) return `≤ ${Math.round(zone.pct[1] * ftp)} W`;
+      return `${Math.round(zone.pct[0] * ftp)}–${Math.round(zone.pct[1] * ftp)} W`;
+    }
+
+    function bpmForZone(zone, maxHr, restHr) {
+      const reserve = Math.max(20, maxHr - restHr);
+      const low = Math.round(restHr + zone.hrr[0] * reserve);
+      const high = Math.round(restHr + zone.hrr[1] * reserve);
+      return `${low}–${high} bpm`;
+    }
+
+    function renderZoneGuide() {
+      const r = routes[activeId];
+      const ftp = Number($('ftpSlider').value);
+      let maxHr = Number($('maxHrSlider').value);
+      let restHr = Number($('restHrSlider').value);
+      if (restHr >= maxHr - 15) {
+        restHr = maxHr - 15;
+        $('restHrSlider').value = String(restHr);
+      }
+      const rec = recommendedZoneForRoute(r);
+      const recZone = trainingZones.find(z => z.id === rec.id) || trainingZones[2];
+      $('ftpVal').textContent = String(ftp);
+      $('maxHrVal').textContent = String(maxHr);
+      $('restHrVal').textContent = String(restHr);
+      $('zoneRecommendation').innerHTML = `<b>${r.bracket} focus: ${rec.label}</b><br><b>Primary HR target:</b> ${bpmForZone(recZone, maxHr, restHr)} · <b>optional power:</b> ${wattsForZone(recZone, ftp)}<br>${rec.note}`;
+      $('zoneGrid').innerHTML = trainingZones.map(zone => `
+        <article class="zone-card ${zone.id === rec.id ? 'active' : ''}">
+          <div class="zone-head"><h3>${zone.name}</h3><div class="zone-range"><strong>${bpmForZone(zone, maxHr, restHr)}</strong><span>${wattsForZone(zone, ftp)}</span></div></div>
+          <p>${zone.feel}</p>
+          <small><b>${zone.rpe}</b> · ${zone.use}</small>
+          ${zone.id === rec.id ? '<span class="zone-tag">Recommended for selected route</span>' : ''}
+        </article>
+      `).join('');
+    }
+
+    function initTabs() {
+      const tabs = $('tabs');
+      tabs.innerHTML = '';
+      Object.values(routes).forEach((r, idx) => {
+        const btn = document.createElement('button');
+        btn.className = `tab ${r.id === activeId ? 'active' : ''}`;
+        btn.setAttribute('data-id', r.id);
+        btn.innerHTML = `<div class="badge">${r.targetKm}</div><div><div class="name">${r.tab}</div><div class="micro">${r.objective}</div></div><div class="dist">${r.bracket}</div>`;
+        btn.addEventListener('click', () => setActiveRoute(r.id));
+        tabs.appendChild(btn);
+      });
+    }
+
+    function initMap() {
+      if (!window.L) {
+        $('mapStatus').textContent = 'Map library blocked; route analysis still works.';
+        return;
+      }
+      map = L.map('map', { zoomControl: false, scrollWheelZoom: true }).setView(START, 12);
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      markerLayer = L.layerGroup().addTo(map);
+      roadLabelLayer = L.layerGroup().addTo(map);
+      $('fitBtn').addEventListener('click', () => fitRoute());
+      $('snapBtn').addEventListener('click', () => {
+        snapped = !snapped;
+        $('snapBtn').classList.toggle('active', snapped);
+        drawMap();
+      });
+    }
+
+    function fitRoute() {
+      if (map && currentBounds) map.fitBounds(currentBounds, { padding: [36, 36] });
+    }
+
+    function createPin(color, label) {
+      return L.divIcon({
+        className: 'checkpoint-pin',
+        html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 9px 20px rgba(0,0,0,.38);">${label}</div>`,
+        iconSize: [24,24], iconAnchor: [12,12]
+      });
+    }
+
+
+    function pointSearchUrl(c) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.mapQuery || c.name)}`;
+    }
+
+    function buildGoogleMapsUrl(route) {
+      const start = route.checkpoints[0].mapQuery || route.checkpoints[0].name;
+      const finish = route.checkpoints[route.checkpoints.length - 1].mapQuery || route.checkpoints[route.checkpoints.length - 1].name;
+      const waypoints = route.checkpoints.slice(1, -1).map(c => c.mapQuery || c.name);
+      const params = [
+        `api=1`,
+        `origin=${encodeURIComponent(start)}`,
+        `destination=${encodeURIComponent(finish)}`,
+        `travelmode=bicycling`
+      ];
+      if (waypoints.length) params.push(`waypoints=${waypoints.map(encodeURIComponent).join('%7C')}`);
+      return `https://www.google.com/maps/dir/?${params.join('&')}`;
+    }
+
+    function openGoogleMapsRoute() {
+      const r = routes[activeId];
+      window.open(buildGoogleMapsUrl(r), '_blank', 'noopener');
+    }
+
+    function drawMap() {
+      if (!map) return;
+      const r = routes[activeId];
+      $('mapStatus').textContent = snapped ? 'Attempting browser-side bicycle road snapping…' : `Showing embedded ${r.distanceKm.toFixed(1)} km route geometry`;
+      markerLayer.clearLayers(); roadLabelLayer.clearLayers();
+      if (routeLine) map.removeLayer(routeLine);
+
+      const drawPolyline = (coords, statusText) => {
+        if (routeLine) map.removeLayer(routeLine);
+        routeLine = L.polyline(coords, { ...lineStyle, color: '#ef4444' }).addTo(map);
+        currentBounds = routeLine.getBounds();
+        fitRoute();
+        $('mapStatus').textContent = statusText;
+      };
+
+      if (snapped) {
+        const wp = r.roadSnapWaypoints.map(([lat,lng]) => `${lng},${lat}`).join(';');
+        const url = `https://routing.openstreetmap.de/routed-bike/route/v1/bike/${wp}?overview=full&geometries=geojson&steps=true`;
+        fetch(url, { mode: 'cors' })
+          .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+          })
+          .then(json => {
+            const coords = json.routes?.[0]?.geometry?.coordinates?.map(([lng,lat]) => [lat,lng]);
+            if (!coords || coords.length < 2) throw new Error('No route geometry returned');
+            drawPolyline(coords, `Road-snapped bicycle routing loaded · ${(json.routes[0].distance/1000).toFixed(1)} km`);
+          })
+          .catch(() => {
+            drawPolyline(r.coords, 'Road snap unavailable; using embedded planning geometry');
+          });
+      } else {
+        drawPolyline(r.coords, `Showing embedded ${r.distanceKm.toFixed(1)} km route geometry`);
+      }
+
+      const seenPins = new Set();
+      r.checkpoints.forEach((c, i) => {
+        const key = `${c.lat.toFixed(5)},${c.lng.toFixed(5)}`;
+        const duplicateStartFinish = seenPins.has(key) && c.key === 'A';
+        if (!duplicateStartFinish) {
+          const pointKey = c.key || String.fromCharCode(65 + i);
+          const pin = L.marker([c.lat, c.lng], { icon: createPin('#ef4444', pointKey) }).addTo(markerLayer);
+          pin.bindPopup(`<b>Point ${pointKey}</b><br>${c.km.toFixed(1)} km checkpoint<br>Full place name and road guideline are listed below the map.`);
+          seenPins.add(key);
+        }
+      });
+
+      // Keep the map visually clean: only the red route line and A/B/C pins are shown.
+      // Full place names, road names, Google Maps links and GPX controls stay in the route guideline below the map.
+    }
+
+    function drawProfile() {
+      const r = routes[activeId];
+      const svg = $('profileSvg');
+      svg.innerHTML = '';
+      const W = 720, H = 245, p = {l:42,r:18,t:18,b:35};
+      const maxElev = Math.max(...r.profile.map(d => d[1]), r.maxAltM) + 30;
+      const x = km => p.l + (km / r.distanceKm) * (W - p.l - p.r);
+      const y = elev => p.t + (1 - elev / maxElev) * (H - p.t - p.b);
+      const ns = 'http://www.w3.org/2000/svg';
+      const el = (name, attrs = {}, parent = svg) => {
+        const node = document.createElementNS(ns, name);
+        Object.entries(attrs).forEach(([k,v]) => node.setAttribute(k,v));
+        parent.appendChild(node); return node;
+      };
+
+      // grid
+      [0, .25, .5, .75, 1].forEach(t => {
+        const yy = p.t + t * (H - p.t - p.b);
+        el('line', {x1:p.l, y1:yy, x2:W-p.r, y2:yy, stroke:'rgba(255,255,255,.08)', 'stroke-width':1});
+      });
+      for (let km = 0; km <= r.distanceKm; km += 10) {
+        const xx = x(km);
+        el('line', {x1:xx, y1:p.t, x2:xx, y2:H-p.b, stroke:'rgba(255,255,255,.055)', 'stroke-width':1});
+        el('text', {x:xx, y:H-13, fill:'rgba(207,226,230,.7)', 'font-size':'10', 'text-anchor':'middle'}).textContent = km;
+      }
+
+      r.rollers.forEach(z => {
+        el('rect', {x:x(z.from), y:p.t, width:x(z.to)-x(z.from), height:H-p.t-p.b, fill:'rgba(56,189,248,.08)'});
+      });
+      r.warnings.forEach(w => {
+        el('rect', {x:x(w.from), y:p.t, width:x(w.to)-x(w.from), height:H-p.t-p.b, fill:w.type === 'danger' ? 'rgba(251,113,133,.14)' : 'rgba(251,191,36,.12)'});
+      });
+
+      const points = r.profile.map(d => `${x(d[0])},${y(d[1])}`).join(' ');
+      const area = `${p.l},${H-p.b} ${points} ${W-p.r},${H-p.b}`;
+      el('polygon', {points: area, fill: 'rgba(94,234,212,.10)'});
+      el('polyline', {points, fill:'none', stroke:r.color, 'stroke-width':4, 'stroke-linejoin':'round', 'stroke-linecap':'round'});
+
+      r.checkpoints.forEach(c => {
+        const nearest = r.profile.reduce((a,b) => Math.abs(b[0]-c.km)<Math.abs(a[0]-c.km)?b:a, r.profile[0]);
+        const cx = x(c.km), cy = y(nearest[1]);
+        el('circle', {cx, cy, r:5.5, fill:'#061217', stroke:r.color, 'stroke-width':2});
+        el('text', {x:cx, y:Math.max(12, cy-9), fill:'rgba(238,247,248,.92)', 'font-size':'10', 'font-weight':'900', 'text-anchor':'middle'}).textContent = c.key || '';
+        if (c.km > 0 && c.km < r.distanceKm - 1) {
+          el('line', {x1:cx, y1:cy+6, x2:cx, y2:H-p.b, stroke:'rgba(255,255,255,.12)', 'stroke-width':1, 'stroke-dasharray':'3 4'});
+        }
+      });
+
+      el('text', {x:p.l, y:13, fill:'rgba(207,226,230,.75)', 'font-size':'11'}).textContent = 'elevation (m)';
+      el('text', {x:W-p.r, y:H-13, fill:'rgba(207,226,230,.75)', 'font-size':'11', 'text-anchor':'end'}).textContent = 'distance (km)';
+
+      const hover = el('line', {x1:-10, y1:p.t, x2:-10, y2:H-p.b, stroke:'rgba(255,255,255,.45)', 'stroke-width':1});
+      const overlay = el('rect', {x:p.l, y:p.t, width:W-p.l-p.r, height:H-p.t-p.b, fill:'transparent'});
+      const tip = $('chartTip');
+      overlay.addEventListener('mousemove', e => {
+        const rect = svg.getBoundingClientRect();
+        const localX = (e.clientX - rect.left) / rect.width * W;
+        const km = Math.max(0, Math.min(r.distanceKm, (localX - p.l) / (W-p.l-p.r) * r.distanceKm));
+        const nearest = r.profile.reduce((a,b) => Math.abs(b[0]-km)<Math.abs(a[0]-km)?b:a, r.profile[0]);
+        hover.setAttribute('x1', x(nearest[0])); hover.setAttribute('x2', x(nearest[0]));
+        tip.style.display = 'block';
+        tip.style.left = `${e.clientX - rect.left + 18}px`;
+        tip.style.top = `${e.clientY - rect.top + 28}px`;
+        const warn = r.warnings.find(w => nearest[0] >= w.from && nearest[0] <= w.to);
+        tip.innerHTML = `<strong>${nearest[0].toFixed(1)} km</strong><br>${Math.round(nearest[1])} m elevation${warn ? `<br><span style="color:${warn.type==='danger'?'var(--danger)':'var(--warn)'}">${warn.type==='danger'?'steep sector':'warning sector'}</span>` : ''}`;
+      });
+      overlay.addEventListener('mouseleave', () => { hover.setAttribute('x1', -10); hover.setAttribute('x2', -10); tip.style.display = 'none'; });
+    }
+
+    function updateEstimator() {
+      const r = routes[activeId];
+      const speed = Number($('speedSlider').value);
+      const power = Number($('powerSlider').value);
+      $('speedVal').textContent = speed.toFixed(1);
+      $('powerVal').textContent = String(power);
+      let estSpeed = speed;
+      let basis = 'Estimated moving time at selected speed';
+      let source = 'manual';
+      if (estimatorMode === 'power') {
+        const climbLoad = r.ascentM / r.distanceKm;
+        const terrainPenalty = Math.max(.88, 1 - (climbLoad - 7) * 0.004);
+        estSpeed = r.refSpeedAt200 * Math.pow(power / 200, 0.36) * terrainPenalty;
+        basis = `Estimated from ${power} W using route-specific climb/wind load`;
+        source = 'power model';
+      }
+      const mins = r.distanceKm / estSpeed * 60;
+      $('movingTime').textContent = minToHhmm(mins);
+      $('estimatedSpeed').textContent = `${estSpeed.toFixed(1)}`;
+      $('speedSource').textContent = source;
+      $('estimateBasis').textContent = basis;
+    }
+
+    function renderPointSequence(route) {
+      return route.checkpoints.map(c => `<a class="seq-point" href="${pointSearchUrl(c)}" target="_blank" rel="noopener" title="Search ${c.name} in Google Maps"><b>${c.key}</b><span>${c.name}</span></a>`).join('');
+    }
+
+    function renderRouteGuideline(route) {
+      return route.checkpoints.slice(0, -1).map((from, i) => {
+        const to = route.checkpoints[i + 1];
+        const pace = route.pacing[i] || [`${from.key}–${to.key}`, `${from.road} → ${to.road}`, to.desc || 'Follow the route line and stay alert through junctions.'];
+        const segmentKm = Math.max(0, to.km - from.km).toFixed(1);
+        return `<article class="guide-step"><div class="letters">${from.key} → ${to.key}</div><div class="guide-main"><div class="place">${from.name} → ${to.name}</div><div class="instruction"><b>${pace[1]}</b> — ${pace[2]}</div></div><div class="km">${segmentKm} km</div></article>`;
+      }).join('');
+    }
+
+    function renderPanels() {
+      const r = routes[activeId];
+      $('routeTitle').textContent = r.name;
+      $('routeObjective').textContent = r.objective;
+      $('mDistance').textContent = fmtKm(r.distanceKm);
+      $('mAscent').textContent = fmtM(r.ascentM);
+      $('mAlt').textContent = fmtM(r.maxAltM);
+      $('mStress').textContent = r.stress;
+      $('profileMeta').textContent = `${fmtM(r.ascentM)} gain · max ${fmtM(r.maxAltM)}`;
+      $('strategyMeta').textContent = r.tab;
+      $('mapGuideMeta').textContent = `${r.distanceKm.toFixed(1)} km · ${r.ascentM} m · ${r.objective}`;
+      const pointSequenceHtml = renderPointSequence(r);
+      $('routeSequence').innerHTML = pointSequenceHtml;
+      $('routeSequenceMap').innerHTML = pointSequenceHtml;
+      $('routeGuidelineMap').innerHTML = renderRouteGuideline(r);
+      $('paceTable').innerHTML = r.pacing.map(row => `<div class="row"><div class="km">${row[0]}</div><div class="road">${row[1]}</div><div class="desc">${row[2]}</div></div>`).join('');
+      $('warnings').innerHTML = r.warnings.map(w => `<div class="warning ${w.type === 'danger' ? 'danger' : ''}"><div class="icon">${w.type === 'danger' ? '!' : '⚠'}</div><div><b>${w.from.toFixed(1)}–${w.to.toFixed(1)} km</b><br>${w.text}</div></div>`).join('');
+      $('strategyGrid').innerHTML = Object.entries(r.strategy).map(([k,v]) => `<article class="strategy-card"><h3>${k[0].toUpperCase()+k.slice(1)}</h3><p>${v}</p></article>`).join('');
+      $('plannerNote').textContent = fallbackNote;
+      renderZoneGuide();
+    }
+
+    function setActiveRoute(id) {
+      activeId = id;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.id === id));
+      renderPanels();
+      updateEstimator();
+      drawProfile();
+      drawMap();
+    }
+
+    function setMode(mode) {
+      estimatorMode = mode;
+      $('modeSpeed').classList.toggle('active', mode === 'speed');
+      $('modePower').classList.toggle('active', mode === 'power');
+      $('speedBlock').hidden = mode !== 'speed';
+      $('powerBlock').hidden = mode !== 'power';
+      updateEstimator();
+    }
+
+    function makeGpx(route) {
+      const escape = s => s.replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+      const elevAtIndex = i => {
+        const p = route.profile[Math.round(i / (route.coords.length - 1) * (route.profile.length - 1))];
+        return p ? p[1] : 0;
+      };
+      const pts = route.coords.map((p,i) => `      <trkpt lat="${p[0]}" lon="${p[1]}"><ele>${Math.round(elevAtIndex(i))}</ele></trkpt>`).join('\n');
+      const wpts = route.checkpoints.map(c => `  <wpt lat="${c.lat}" lon="${c.lng}"><name>${escape((c.key ? c.key + ' · ' : '') + c.name)}</name><desc>${escape(c.km.toFixed(1)+' km · '+c.road+' · '+c.desc)}</desc></wpt>`).join('\n');
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Rådalslien Road Cycling Route Platform" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>${escape(route.name)}</name><desc>${escape(route.distanceKm.toFixed(1)+' km, '+route.ascentM+' m ascent, round trip from Rådalslien 117')}</desc></metadata>\n${wpts}\n  <trk><name>${escape(route.name)}</name><type>road cycling</type><trkseg>\n${pts}\n  </trkseg></trk>\n</gpx>`;
+    }
+
+    function exportGpx() {
+      const r = routes[activeId];
+      const blob = new Blob([makeGpx(r)], { type: 'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${r.id}_radalslien_road_loop.gpx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function copyBrief() {
+      const r = routes[activeId];
+      const speedText = $('estimatedSpeed').textContent;
+      const text = `${r.name}\nStart/finish: Rådalslien 117, Rådal\nDistance: ${r.distanceKm.toFixed(1)} km · Ascent: ${r.ascentM} m · Max altitude: ${r.maxAltM} m\nEstimated moving time: ${$('movingTime').textContent} at ~${speedText} km/h\nObjective: ${r.objective}\nPoint sequence: ${r.checkpoints.map(c => `${c.key} ${c.name} (${c.road})`).join(' → ')}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        $('copyBtn').textContent = 'Copied';
+        $('copyBtnMap').textContent = 'Copied';
+        setTimeout(() => { $('copyBtn').textContent = 'Copy route brief'; $('copyBtnMap').textContent = 'Copy route brief'; }, 1200);
+      } catch {
+        alert(text);
+      }
+    }
+
+    $('modeSpeed').addEventListener('click', () => setMode('speed'));
+    $('modePower').addEventListener('click', () => setMode('power'));
+    $('speedSlider').addEventListener('input', updateEstimator);
+    $('powerSlider').addEventListener('input', updateEstimator);
+    $('gpxBtn').addEventListener('click', exportGpx);
+    $('gpxBtnMap').addEventListener('click', exportGpx);
+    $('mapsBtn').addEventListener('click', openGoogleMapsRoute);
+    $('mapsBtnMap').addEventListener('click', openGoogleMapsRoute);
+    $('copyBtn').addEventListener('click', copyBrief);
+    $('copyBtnMap').addEventListener('click', copyBrief);
+    $('ftpSlider').addEventListener('input', renderZoneGuide);
+    $('maxHrSlider').addEventListener('input', renderZoneGuide);
+    $('restHrSlider').addEventListener('input', renderZoneGuide);
+
+    initSmartBuilder();
+    initTabs();
+    initMap();
+    setActiveRoute(activeId);
+  </script>
+</body>
+</html>
